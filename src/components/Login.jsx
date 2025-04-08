@@ -5,9 +5,9 @@ import { collection, getDocs } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 const roleMap = {
-  iJqqejvfOLsAfPF8Gldn: "cashier",
-  RJ2ufOCfB5AtsHR9CEWv: "manager",
-  OWdbuUmJDzjAz4QRCKtF: "chef",
+  role01: "cashier",
+  role02: "manager",
+  role03: "chef",
 };
 
 export default function Login() {
