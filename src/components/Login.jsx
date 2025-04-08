@@ -6,8 +6,8 @@ import { useNavigate } from "react-router-dom";
 
 const roleMap = {
   role01: "cashier",
-  rol02: "manager",
-  rol03: "chef",
+  role02: "manager",
+  role03: "chef",
 };
 
 export default function Login() {
