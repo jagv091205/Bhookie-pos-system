@@ -8,9 +8,9 @@ export default function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* <Route path="/" element={<Login />} /> */}
-          {/* <Route path="/pos" element={<POS />} /> */}
-          <Route path="/" element={<POS />} />
+          <Route path="/" element={<Login />} /> 
+          <Route path="/pos" element={<POS />} />
+         
         </Routes>
       </AuthProvider>
     </Router>

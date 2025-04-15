@@ -1,63 +1,61 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AutoContext";
 import { db } from "../firebase/config";
-import { collection, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 const roleMap = {
-  role01: "cashier",
-  role02: "manager",
-  role03: "chef",
+  cash01: "cashier",
+
 };
 
 export default function Login() {
-  const [mobile, setMobile] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
   const handleLogin = async () => {
-    const trimmedMobile = mobile.trim();
-  
-    if (!trimmedMobile) {
-      alert("Please enter a mobile number.");
+    const trimmedCode = code.trim();
+
+    if (!trimmedCode || trimmedCode.length !== 4) {
+      alert("Please enter a valid 4-digit code.");
       return;
     }
-  
+
     setLoading(true);
-  
+
     try {
-      const usersSnapshot = await getDocs(collection(db, "users"));
-      let matchedUser = null;
-  
-      usersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const mobileStr = String(data.mobile);
-        const isActive = data["active/inactive"] === true || data.active === true;
-  
-        if (mobileStr === trimmedMobile && isActive) {
-          matchedUser = { id: doc.id, ...data };
-        }
-      });
-  
-      if (matchedUser) {
-        const roleRef = matchedUser.roleId;
-        const roleId = typeof roleRef === "object" && roleRef.id ? roleRef.id : null;
-        const role = roleMap[roleId];
-  
-        if (role) {
-          setUser({ ...matchedUser, role });
-  
-          if (role === "cashier") {
-            navigate("/pos");
-          } else {
-            alert(`Logged in as ${role}`);
-          }
+      const userRef = doc(db, "users", trimmedCode);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const isActive =
+          userData["active/inactive"] === true || userData.active === true;
+
+        if (!isActive) {
+          alert("User is inactive.");
         } else {
-          alert("User role not recognized.");
+          const roleRef = userData.roleId;
+          const roleId =
+            typeof roleRef === "object" && roleRef.id ? roleRef.id : roleRef;
+          const role = roleMap[roleId];
+
+          if (role) {
+            setUser({ id: trimmedCode, ...userData, role });
+
+            if (role === "cashier") {
+              navigate("/POS");
+            } else {
+              alert(`Logged in as ${role}`);
+            }
+          } else {
+            alert("User role not recognized.");
+          }
         }
       } else {
-        alert("User not found or inactive.");
+        alert("Invalid login code.");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -66,17 +64,18 @@ export default function Login() {
       setLoading(false);
     }
   };
-  
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
       <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
         <h2 className="text-2xl font-semibold mb-4 text-center">Login</h2>
         <input
           type="text"
-          placeholder="Enter mobile number"
-          value={mobile}
-          onChange={(e) => setMobile(e.target.value)}
-          className="p-2 border border-gray-300 rounded w-full mb-4"
+          placeholder="Enter 4-digit code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          maxLength={4}
+          className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
         />
         <button
           onClick={handleLogin}
