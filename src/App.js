@@ -3,8 +3,10 @@ import { AuthProvider } from "./contexts/AutoContext";
 import Login from "./components/Login";
 import POS from "./components/POS";
 
+
 export default function App() {
   return (
+    
     <Router>
       <AuthProvider>
         <Routes>
@@ -14,5 +16,6 @@ export default function App() {
         </Routes>
       </AuthProvider>
     </Router>
+    
   );
 }

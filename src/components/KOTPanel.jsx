@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 
 export default function KOTPanel() {
+  
   const [kotItems, setKotItems] = useState([]);
   const [subTotal, setSubTotal] = useState(0);
   const [discount, setDiscount] = useState(0);
@@ -34,12 +35,17 @@ export default function KOTPanel() {
     // Add more items as needed
   ];
 
-  const handleAddItem = (item) => {
-    const existing = kotItems.find((i) => i.id === item.id);
-    if (existing) {
-      const updated = kotItems.map((i) =>
-        i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-      );
+  const handleAddItem=(item)=>{
+
+    const existingIndex = kotItems.findIndex(
+      (i) =>
+        i.id === item.id &&
+        JSON.stringify(i.sauces || []) === JSON.stringify(item.sauces || [])
+    );
+  
+    if (existingIndex !== -1) {
+      const updated = [...kotItems];
+      updated[existingIndex].quantity += 1;
       setKotItems(updated);
     } else {
       setKotItems((prev) => [...prev, { ...item, quantity: 1 }]);
@@ -171,7 +177,13 @@ export default function KOTPanel() {
                     </tr>`
                 )
                 .join("")}
-            </tbody>
+                <td>
+                {item.name}
+                {item.sauces?.length > 0 && (
+                <div className="text-sm text-gray-500">
+                {item.sauces.join(", ")}
+                </div>)}</td>
+                </tbody>
           </table>
           <p><strong>Sub Total:</strong> ₹${subTotal}</p>
           <p><strong>Discount:</strong> ₹${discount}</p>
@@ -246,6 +258,15 @@ export default function KOTPanel() {
             <tr key={index}>
               <td>{item.name}</td>
               <td>
+              <td>
+  {item.name}
+  {item.sauces?.length > 0 && (
+    <div className="text-sm text-gray-500">
+      {item.sauces.join(", ")}
+    </div>
+  )}
+</td>
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
