@@ -70,6 +70,9 @@ export default function KOTPanel() {
       0
     );
     setSubTotal(subtotal);
+    const newDiscount = customerPoints >= 2 ? subtotal * 0.1 : 0;
+    setDiscount(newDiscount);
+    setTotal(subtotal - newDiscount);
     setDiscount(0);
     setTotal(subtotal);
   };
@@ -193,6 +196,14 @@ export default function KOTPanel() {
     setCustomerPhone(customer.phone);
     setCustomerName(customer.name);
     setCustomerPoints(customer.points || 0);
+    
+    // Apply 10% discount if points >= 2
+    if (customer.points >= 2) {
+      const discountAmount = subTotal * 0.1;
+      setDiscount(discountAmount);
+      setTotal(subTotal - discountAmount);
+    }
+    
     setIsCustomerModalOpen(false);
     setIsPaymentModalOpen(true);
   };
@@ -313,9 +324,11 @@ export default function KOTPanel() {
             ).join("")}
           </tbody>
         </table>
-        <p><strong>Sub Total:</strong> ₹${subTotal}</p>
-        <p><strong>Discount:</strong> ₹${discount}</p>
-        <p><strong>Total:</strong> ₹${total}</p>
+        <p><strong>Sub Total:</strong> £${subTotal}</p>
+        <p><strong>Discount:</strong> £${discount}</p>
+        <p><strong>Total:</strong> £${total}</p>
+        {customerPoints >= 2 && (
+      <p className="text-green-600">10% discount applied (Points: {customerPoints})</p>
         ${customerId ? `<p><strong>Earned Points:</strong> ${earnedPoints}</p>` : ''}
       </div>
     `;
@@ -440,10 +453,10 @@ export default function KOTPanel() {
         </table>
 
         <div>
-          <p>Sub Total: ₹{subTotal}</p>
-          <p>Discount: ₹{discount}</p>
+          <p>Sub Total: £ {subTotal}</p>
+          <p>Discount: £{discount}</p>
           <p>Tax: --</p>
-          <p className="font-bold text-lg">Total: ₹{total}</p>
+          <p className="font-bold text-lg">Total: £{total}</p>
         </div>
       </div>
 
@@ -561,102 +574,77 @@ export default function KOTPanel() {
       )}
 
       {/* Customer Modal */}
-      {isCustomerModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
-            <button
-              onClick={() => setIsCustomerModalOpen(false)}
-              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
-            >
-              ✕
-            </button>
-            <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
-            
-            {!isNewCustomer ? (
-              <>
-                <div className="mb-4">
-                  <p className="mb-2">Enter Customer ID or Phone Number:</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="Customer ID or Phone"
-                      className="border p-2 flex-1 rounded"
-                    />
-                    <button
-                      onClick={searchCustomer}
-                      className="bg-blue-600 text-white px-4 py-2 rounded"
-                    >
-                      Search
-                    </button>
-                  </div>
-                </div>
+      {/* Customer Modal */}
+{isCustomerModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
+      <button
+        onClick={() => setIsCustomerModalOpen(false)}
+        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+      >
+        ✕
+      </button>
+      <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
+      
+      <div className="mb-4">
+        <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
+            placeholder="Customer ID or Phone"
+            className="border p-2 flex-1 rounded"
+          />
+          <button
+            onClick={searchCustomer}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Search
+          </button>
+        </div>
+      </div>
 
-                {foundCustomers.length > 0 && (
-                  <div className="mb-4 border-t pt-4">
-                    <h4 className="font-semibold mb-2">Found Customers:</h4>
-                    <div className="max-h-40 overflow-y-auto">
-                      {foundCustomers.map((customer) => (
-                       <div
-                       key={customer.customerID}
-                       className="p-2 border-b hover:bg-gray-100 cursor-pointer"
-                       onClick={() => handleSelectCustomer(customer)} // Corrected line
-                     >
-                       {customer.name} - {customer.phone} (ID: {customer.customerID}, Points: {customer.points || 0})
-                     </div>
-                     
-                      ))}
-                    </div>
-                  </div>
+      {foundCustomers.length > 0 && (
+        <div className="mb-4 border-t pt-4">
+          <h4 className="font-semibold mb-2">Found Customers:</h4>
+          <div className="max-h-40 overflow-y-auto">
+            {foundCustomers.map((customer) => (
+              <div
+                key={customer.customerID}
+                className="p-2 border-b hover:bg-gray-100 cursor-pointer"
+                onClick={() => handleSelectCustomer(customer)}
+              >
+                {customer.name} (Points: {customer.points || 0})
+                {customer.points >= 2 && (
+                  <span className="text-green-600 ml-2">✓ Eligible for 10% discount</span>
                 )}
-
-                <button
-                  onClick={() => setIsNewCustomer(true)}
-                  className="bg-green-600 text-white px-4 py-2 rounded mt-4"
-                >
-                  New Customer
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <p className="mb-1 text-left">Customer Name:</p>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Full Name"
-                    className="border p-2 w-full rounded mb-3"
-                  />
-                  <p className="mb-1 text-left">Phone Number:</p>
-                  <input
-                    type="text"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Phone Number"
-                    className="border p-2 w-full rounded"
-                  />
-                </div>
-                <div className="flex gap-2 justify-center">
-                  <button
-                    onClick={() => setIsNewCustomer(false)}
-                    className="bg-gray-500 text-white px-4 py-2 rounded"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={createNewCustomer}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
-                  >
-                    Create Customer
-                  </button>
-                </div>
-              </>
-            )}
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      <div className="flex gap-2 justify-center mt-4">
+        <button
+          onClick={() => {
+            setIsCustomerModalOpen(false);
+            setIsPaymentModalOpen(true);
+          }}
+          className="bg-gray-500 text-white px-4 py-2 rounded"
+        >
+          Skip Loyalty
+        </button>
+        <button
+          onClick={() => setIsNewCustomer(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded"
+        >
+          New Customer
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Payment Modal */}
       {isPaymentModalOpen && (
