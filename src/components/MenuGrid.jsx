@@ -50,32 +50,44 @@ export default function MenuGrid({ onAddItem = () => {} }) {
   const handleItemClick = async (item) => {
     setSelectedItem(item);
     try {
-      const sauceGroupSnap = await getDoc(item.sauces);
-      
-      
-        if (sauceGroupSnap.exists()){
-          const sauceList=sauceGroupSnap.data().sauces || [];
+      if (item.sauces) {
+        const sauceGroupSnap = await getDoc(item.sauces);
+        if (sauceGroupSnap.exists()) {
+          const sauceList = sauceGroupSnap.data().sauces || [];
           setSauces(sauceList);
           setShowSaucePopup(true);
+          return; // Wait for sauce selection
         }
-    else{
-      console.warn("Sauce group reference not found");
-      setSauces([]);
-      setShowSaucePopup(true);
+      }
+      // If no sauces or error, add item directly
+      onAddItem({
+        id: item.id,
+        name: item.itemName,
+        price: item.price,
+        quantity: 1
+      });
+    } catch (err) {
+      console.error("Error fetching sauces:", err);
+      // On error, add the item without sauces
+      onAddItem({
+        id: item.id,
+        name: item.itemName,
+        price: item.price,
+        quantity: 1
+      });
     }
-  }catch(err){
-      console.error("Error Fetching sauces:",err);
-      setSauces([]);
-      setShowSaucePopup(true);
-    }
-};
+  };
 
   const handleSelectSauce = (sauce) => {
-    const itemWithSauce = {
-      ...selectedItem,
-      selectedSauce: sauce || null,
-    };
-    onAddItem(itemWithSauce);
+    if (selectedItem) {
+      onAddItem({
+        id: selectedItem.id,
+        name: selectedItem.itemName,
+        price: selectedItem.price,
+        sauces: sauce ? [sauce] : [],
+        quantity: 1
+      });
+    }
     setShowSaucePopup(false);
     setSelectedItem(null);
   };
@@ -132,49 +144,48 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       </div>
 
       {/* Sauce Popup */}
-{showSaucePopup && selectedItem && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-    <div className="bg-white rounded-lg p-6 shadow-lg max-w-lg w-full">
-      <h2 className="text-xl font-bold mb-4 text-purple-800">
-        Select Sauce for {selectedItem.itemName}
-      </h2>
+      {showSaucePopup && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg max-w-lg w-full">
+            <h2 className="text-xl font-bold mb-4 text-purple-800">
+              Select Sauce for {selectedItem.itemName}
+            </h2>
 
-      {sauceOptions.length > 0 ? (
-        <div className="flex flex-wrap gap-3">
-          {sauceOptions.map((sauce, index) => (
+            {sauceOptions.length > 0 ? (
+              <div className="flex flex-wrap gap-3">
+                {sauceOptions.map((sauce, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSelectSauce(sauce)}
+                    className="bg-green-300 hover:bg-green-400 text-black px-4 py-2 rounded text-sm"
+                  >
+                    {sauce}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-gray-500 mb-4">No sauces available</div>
+            )}
+
             <button
-              key={index}
-              onClick={() => handleSelectSauce(sauce)}
-              className="bg-green-300 hover:bg-green-400 text-black px-4 py-2 rounded text-sm"
+              onClick={() => handleSelectSauce(null)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              {sauce}
+              No Sauce
             </button>
-          ))}
+
+            <button
+              onClick={() => {
+                setShowSaucePopup(false);
+                setSelectedItem(null);
+              }}
+              className="mt-2 ml-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="text-gray-500 mb-4">No sauces available</div>
       )}
-
-      {/* Optional: No sauce option */}
-      <button
-        onClick={() => handleSelectSauce(null)}
-        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        No Sauce
-      </button>
-
-      <button
-        onClick={() => {
-          setShowSaucePopup(false);
-          setSelectedItem(null);
-        }}
-        className="mt-2 ml-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-      >
-        Cancel
-      </button>
     </div>
-  </div>
-)}
-</div>
   );
 }

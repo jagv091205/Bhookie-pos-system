@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
 import { where } from "firebase/firestore";
-
 import {
   collection,
   getDocs,
@@ -14,8 +13,7 @@ import {
   addDoc,
 } from "firebase/firestore";
 
-export default function KOTPanel() {
-  const [kotItems, setKotItems] = useState([]);
+export default function KOTPanel({ kotItems, setKotItems }) {
   const [subTotal, setSubTotal] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [total, setTotal] = useState(0);
@@ -37,32 +35,9 @@ export default function KOTPanel() {
 
   const userId = "1234"; // Replace with logged-in user ID
 
-  // Dummy items (replace with actual selection logic)
-  const availableItems = [
-    { id: "item01", name: "Manchurian Wrap", price: 200 },
-    { id: "item02", name: "Veg Burger", price: 150 },
-    { id: "item03", name: "Paneer Pizza", price: 250 },
-  ];
-
   useEffect(() => {
     updateTotals();
   }, [kotItems]);
-
-  const handleAddItem = (item) => {
-    const existingIndex = kotItems.findIndex(
-      (i) =>
-        i.id === item.id &&
-        JSON.stringify(i.sauces || []) === JSON.stringify(item.sauces || [])
-    );
-
-    if (existingIndex !== -1) {
-      const updated = [...kotItems];
-      updated[existingIndex].quantity += 1;
-      setKotItems(updated);
-    } else {
-      setKotItems((prev) => [...prev, { ...item, quantity: 1 }]);
-    }
-  };
 
   const updateTotals = (items = kotItems) => {
     const subtotal = items.reduce(
@@ -73,8 +48,6 @@ export default function KOTPanel() {
     const newDiscount = customerPoints >= 2 ? subtotal * 0.1 : 0;
     setDiscount(newDiscount);
     setTotal(subtotal - newDiscount);
-    setDiscount(0);
-    setTotal(subtotal);
   };
 
   const openNumberPad = (index) => {
@@ -319,7 +292,7 @@ export default function KOTPanel() {
                       `<div style="font-size: 10px; color: #555;">${item.sauces.join(", ")}</div>` : ''}
                   </td>
                   <td style="border: 1px solid #000; padding: 5px;">${item.quantity}</td>
-                  <td style="border: 1px solid #000; padding: 5px;">₹${item.quantity * item.price}</td>
+                  <td style="border: 1px solid #000; padding: 5px;">£${item.quantity * item.price}</td>
                 </tr>`
             ).join("")}
           </tbody>
@@ -327,8 +300,7 @@ export default function KOTPanel() {
         <p><strong>Sub Total:</strong> £${subTotal}</p>
         <p><strong>Discount:</strong> £${discount}</p>
         <p><strong>Total:</strong> £${total}</p>
-        {customerPoints >= 2 && (
-      <p className="text-green-600">10% discount applied (Points: {customerPoints})</p>
+        ${customerPoints >= 2 ? `<p style="color: green;">10% discount applied (Points: ${customerPoints})</p>` : ''}
         ${customerId ? `<p><strong>Earned Points:</strong> ${earnedPoints}</p>` : ''}
       </div>
     `;
@@ -367,20 +339,11 @@ export default function KOTPanel() {
       {customerId && (
         <div className="mb-4 text-base font-semibold text-green-700 border border-green-300 rounded p-2 bg-green-50">
           Customer: {customerName} ({customerId}) - Points: {customerPoints}
+          {customerPoints >= 2 && (
+            <p className="text-green-600">10% discount applied</p>
+          )}
         </div>
       )}
-
-      <div className="mb-4 flex flex-wrap gap-2">
-        {availableItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => handleAddItem(item)}
-            className="bg-green-600 text-white px-3 py-2 rounded"
-          >
-            {item.name}
-          </button>
-        ))}
-      </div>
 
       <div className="border p-4 rounded mb-4 bg-white">
         <table className="w-full text-left mb-4">
@@ -438,7 +401,7 @@ export default function KOTPanel() {
                     </button>
                   </div>
                 </td>
-                <td>₹{item.quantity * item.price}</td>
+                <td>£{item.quantity * item.price}</td>
                 <td>
                   <button
                     onClick={() => handleRemoveItem(index)}
@@ -453,16 +416,15 @@ export default function KOTPanel() {
         </table>
 
         <div>
-          <p>Sub Total: £ {subTotal}</p>
+          <p>Sub Total: £{subTotal}</p>
           <p>Discount: £{discount}</p>
-          <p>Tax: --</p>
           <p className="font-bold text-lg">Total: £{total}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-2 mb-4">
         <button
-          onClick={() => alert(`Total: ₹${total}`)}
+          onClick={() => alert(`Total: £${total}`)}
           className="bg-green-600 text-white p-2 rounded"
         >
           TOTAL
@@ -520,31 +482,31 @@ export default function KOTPanel() {
             </div>
 
             <div className="flex items-center justify-center gap-4 mb-4">
-              <button
-                onClick={() =>
-                  setQuantityInput((prev) =>
-                    String(Math.max(parseInt(prev || "0", 10) - 1, 1))
-              )
-                }
-                className="bg-gray-300 text-xl w-10 h-10 rounded-full"
-              >
-                -
-              </button>
+  <button
+    onClick={() =>
+      setQuantityInput((prev) =>
+        String(Math.max(parseInt(prev || "0", 10) - 1, 1))
+      )
+    }
+    className="bg-gray-300 text-xl w-10 h-10 rounded-full"
+  >
+    -
+  </button>
+  <div className="text-3xl text-center border p-2 px-6 bg-gray-100 rounded">
+    {quantityInput || "0"}
+  </div>
+  <button
+    onClick={() =>
+      setQuantityInput((prev) =>
+        String(parseInt(prev || "0", 10) + 1)
+      )
+    }
+    className="bg-gray-300 text-xl w-10 h-10 rounded-full"
+  >
+    +
+  </button>
+</div>
 
-              <div className="text-3xl text-center border p-2 px-6 bg-gray-100 rounded">
-                {quantityInput || "0"}
-              </div>
-
-              <button
-                onClick={() =>
-                  setQuantityInput((prev) =>
-                    String(parseInt(prev || "0", 10) + 1))
-                }
-                className="bg-gray-300 text-xl w-10 h-10 rounded-full"
-              >
-                +
-              </button>
-            </div>
 
             <div className="grid grid-cols-3 gap-2 mb-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
@@ -574,77 +536,76 @@ export default function KOTPanel() {
       )}
 
       {/* Customer Modal */}
-      {/* Customer Modal */}
-{isCustomerModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-    <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
-      <button
-        onClick={() => setIsCustomerModalOpen(false)}
-        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
-      >
-        ✕
-      </button>
-      <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
-      
-      <div className="mb-4">
-        <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={customerSearch}
-            onChange={(e) => setCustomerSearch(e.target.value)}
-            placeholder="Customer ID or Phone"
-            className="border p-2 flex-1 rounded"
-          />
-          <button
-            onClick={searchCustomer}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Search
-          </button>
-        </div>
-      </div>
-
-      {foundCustomers.length > 0 && (
-        <div className="mb-4 border-t pt-4">
-          <h4 className="font-semibold mb-2">Found Customers:</h4>
-          <div className="max-h-40 overflow-y-auto">
-            {foundCustomers.map((customer) => (
-              <div
-                key={customer.customerID}
-                className="p-2 border-b hover:bg-gray-100 cursor-pointer"
-                onClick={() => handleSelectCustomer(customer)}
-              >
-                {customer.name} (Points: {customer.points || 0})
-                {customer.points >= 2 && (
-                  <span className="text-green-600 ml-2">✓ Eligible for 10% discount</span>
-                )}
+      {isCustomerModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
+            <button
+              onClick={() => setIsCustomerModalOpen(false)}
+              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+            >
+              ✕
+            </button>
+            <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
+            
+            <div className="mb-4">
+              <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Customer ID or Phone"
+                  className="border p-2 flex-1 rounded"
+                />
+                <button
+                  onClick={searchCustomer}
+                  className="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                  Search
+                </button>
               </div>
-            ))}
+            </div>
+
+            {foundCustomers.length > 0 && (
+              <div className="mb-4 border-t pt-4">
+                <h4 className="font-semibold mb-2">Found Customers:</h4>
+                <div className="max-h-40 overflow-y-auto">
+                  {foundCustomers.map((customer) => (
+                    <div
+                      key={customer.customerID}
+                      className="p-2 border-b hover:bg-gray-100 cursor-pointer"
+                      onClick={() => handleSelectCustomer(customer)}
+                    >
+                      {customer.name} (Points: {customer.points || 0})
+                      {customer.points >= 2 && (
+                        <span className="text-green-600 ml-2">✓ Eligible for 10% discount</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-center mt-4">
+              <button
+                onClick={() => {
+                  setIsCustomerModalOpen(false);
+                  setIsPaymentModalOpen(true);
+                }}
+                className="bg-gray-500 text-white px-4 py-2 rounded"
+              >
+                Skip Loyalty
+              </button>
+              <button
+                onClick={() => setIsNewCustomer(true)}
+                className="bg-green-600 text-white px-4 py-2 rounded"
+              >
+                New Customer
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-      <div className="flex gap-2 justify-center mt-4">
-        <button
-          onClick={() => {
-            setIsCustomerModalOpen(false);
-            setIsPaymentModalOpen(true);
-          }}
-          className="bg-gray-500 text-white px-4 py-2 rounded"
-        >
-          Skip Loyalty
-        </button>
-        <button
-          onClick={() => setIsNewCustomer(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-        >
-          New Customer
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
       {/* Payment Modal */}
       {isPaymentModalOpen && (
