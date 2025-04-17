@@ -116,7 +116,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
         {error ? (
           <div className="text-red-500">{error}</div>
         ) : selectedCategoryId ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-9 md:grid-cols-4 lg:grid-cols-7 gap-1">
             {filteredItems.map((item) => (
               <button
                 key={item.id}

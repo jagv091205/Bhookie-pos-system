@@ -136,7 +136,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
 
   const searchCustomer = async () => {
     if (!customerSearch) return;
-    
+
     try {
       const customersRef = collection(db, "customers");
       const phoneQuery = query(
@@ -147,16 +147,16 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         customersRef,
         where("customerID", "==", customerSearch)
       );
-      
+
       const [phoneSnapshot, idSnapshot] = await Promise.all([
         getDocs(phoneQuery),
         getDocs(idQuery)
       ]);
-      
+
       const results = [];
       phoneSnapshot.forEach(doc => results.push(doc.data()));
       idSnapshot.forEach(doc => results.push(doc.data()));
-      
+
       setFoundCustomers(results);
     } catch (error) {
       console.error("Error searching customer:", error);
@@ -169,14 +169,14 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setCustomerPhone(customer.phone);
     setCustomerName(customer.name);
     setCustomerPoints(customer.points || 0);
-    
+
     // Apply 10% discount if points >= 2
     if (customer.points >= 2) {
       const discountAmount = subTotal * 0.1;
       setDiscount(discountAmount);
       setTotal(subTotal - discountAmount);
     }
-    
+
     setIsCustomerModalOpen(false);
     setIsPaymentModalOpen(true);
   };
@@ -186,7 +186,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       alert("Please enter phone number and name");
       return;
     }
-    
+
     try {
       const newCustomerId = await generateCustomerId();
       const customerData = {
@@ -197,9 +197,9 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };
-      
+
       await setDoc(doc(db, "customers", customerPhone), customerData);
-      
+
       setCustomerId(newCustomerId);
       setCustomerPhone(customerPhone);
       setCustomerName(customerName);
@@ -223,7 +223,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setKotId(newKOTId);
 
     const earnedPoints = Math.floor(total * 0.1); // 10% of total as points
-    
+
     const data = {
       kot_id: newKOTId,
       date: Timestamp.now(),
@@ -246,10 +246,10 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     if (customerId) {
       try {
         // Update customer document
-        const customerDoc = customerPhone 
+        const customerDoc = customerPhone
           ? doc(db, "customers", customerPhone)
           : doc(db, "customers", customerId);
-        
+
         await setDoc(customerDoc, {
           points: customerPoints + earnedPoints,
           updatedAt: Timestamp.now()
@@ -288,7 +288,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 <tr>
                   <td style="border: 1px solid #000; padding: 5px;">
                     ${item.name}
-                    ${item.sauces?.length > 0 ? 
+                    ${item.sauces?.length > 0 ?
                       `<div style="font-size: 10px; color: #555;">${item.sauces.join(", ")}</div>` : ''}
                   </td>
                   <td style="border: 1px solid #000; padding: 5px;">${item.quantity}</td>
@@ -327,7 +327,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   };
 
   return (
-    <div className="p-4 w-full max-w-3xl mx-auto">
+    <div className="p-4 w-full max-w-md mx-auto">
       <h2 className="text-2xl font-bold mb-4">ORDER</h2>
 
       {kotId && (
@@ -422,7 +422,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <button
           onClick={() => alert(`Total: £${total}`)}
           className="bg-green-600 text-white p-2 rounded"
@@ -453,17 +453,15 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         >
           PAY
         </button>
-        <div className="col-span-2">
-          <button
-            onClick={handleGenerateKOT}
-            disabled={!isPaymentProcessed}
-            className={`w-full text-white p-2 rounded ${
-              isPaymentProcessed ? "bg-green-800" : "bg-gray-500 cursor-not-allowed"
-            }`}
-          >
-            SAVE KOT
-          </button>
-        </div>
+        <button
+          onClick={handleGenerateKOT}
+          disabled={!isPaymentProcessed}
+          className={`w-full text-white p-2 rounded ${
+            isPaymentProcessed ? "bg-green-800" : "bg-gray-500 cursor-not-allowed"
+          }`}
+        >
+          SAVE KOT
+        </button>
       </div>
 
       {/* Number Pad Modal */}
@@ -482,31 +480,30 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             </div>
 
             <div className="flex items-center justify-center gap-4 mb-4">
-  <button
-    onClick={() =>
-      setQuantityInput((prev) =>
-        String(Math.max(parseInt(prev || "0", 10) - 1, 1))
-      )
-    }
-    className="bg-gray-300 text-xl w-10 h-10 rounded-full"
-  >
-    -
-  </button>
-  <div className="text-3xl text-center border p-2 px-6 bg-gray-100 rounded">
-    {quantityInput || "0"}
-  </div>
-  <button
-    onClick={() =>
-      setQuantityInput((prev) =>
-        String(parseInt(prev || "0", 10) + 1)
-      )
-    }
-    className="bg-gray-300 text-xl w-10 h-10 rounded-full"
-  >
-    +
-  </button>
-</div>
-
+              <button
+                onClick={() =>
+                  setQuantityInput((prev) =>
+                    String(Math.max(parseInt(prev || "0", 10) - 1, 1))
+                  )
+                }
+                className="bg-gray-300 text-xl w-10 h-10 rounded-full"
+              >
+                -
+              </button>
+              <div className="text-3xl text-center border p-2 px-6 bg-gray-100 rounded">
+                {quantityInput || "0"}
+              </div>
+              <button
+                onClick={() =>
+                  setQuantityInput((prev) =>
+                    String(parseInt(prev || "0", 10) + 1)
+                  )
+                }
+                className="bg-gray-300 text-xl w-10 h-10 rounded-full"
+              >
+                +
+              </button>
+            </div>
 
             <div className="grid grid-cols-3 gap-2 mb-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
@@ -538,7 +535,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       {/* Customer Modal */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
+          <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
             <button
               onClick={() => setIsCustomerModalOpen(false)}
               className="absolute top-2 right-2 text-red-600 font-bold text-xl"
@@ -546,7 +543,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
               ✕
             </button>
             <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
-            
+
             <div className="mb-4">
               <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
               <div className="flex gap-2">
