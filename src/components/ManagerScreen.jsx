@@ -95,9 +95,9 @@ export default function ManagerScreen() {
             className={`block w-full text-left px-4 py-2 rounded ${
               activeTab === "Staff Meal" ? "bg-gray-700" : "hover:bg-gray-700"
             }`}
-            onClick={() => setActiveTab("Staff Mail")}
+            onClick={() => setActiveTab("Staff Meal")}
           >
-            Staff Mail
+            Staff Meal
           </button>
           <button
             className={`block w-full text-left px-4 py-2 rounded ${
@@ -204,7 +204,7 @@ export default function ManagerScreen() {
           </div>
         )}
 
-        {activeTab === "Staff Mail" && <p>📧 Staff Mail panel coming soon!</p>}
+        {activeTab === "Staff Meal" && <p>📧 Staff Mail panel coming soon!</p>}
         {activeTab === "Cash" && <p>💰 Cash overview panel coming soon!</p>}
       </main>
     </div>
