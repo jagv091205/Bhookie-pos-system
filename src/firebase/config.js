@@ -13,13 +13,15 @@ import { getAuth } from "firebase/auth";
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+    apiKey: "AIzaSyA5jVQcxmKKLQy31Ft8329EB_cWRyBu0uI",
+    authDomain: "bhookiecore.firebaseapp.com",
+    databaseURL: "https://bhookiecore-default-rtdb.firebaseio.com",
+    projectId: "bhookiecore",
+    storageBucket: "bhookiecore.firebasestorage.app",
+    messagingSenderId: "252666746613",
+    appId: "1:252666746613:web:e97a48d4c31c1d952d17bc",
+    measurementId: "G-STVRJ77V79"
+  };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

@@ -32,7 +32,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   const [customerPoints, setCustomerPoints] = useState(0);
   const [customerSearch, setCustomerSearch] = useState("");
   const [foundCustomers, setFoundCustomers] = useState([]);
-
+  const [showCancelConfirm,setShowCancelConfirm]=useState(false);
   const userId = "1234"; // Replace with logged-in user ID
 
   useEffect(() => {
@@ -78,6 +78,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     updateTotals(updated);
   };
 
+  
+  
   const clearItems = () => {
     setKotItems([]);
     updateTotals([]);
@@ -88,6 +90,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setCustomerPhone("");
     setCustomerName("");
   };
+  
+  
 
   const handlePayClick = () => {
     if (kotItems.length === 0) {
@@ -430,23 +434,15 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           TOTAL
         </button>
         <button
-          onClick={clearItems}
-          className="bg-red-600 text-white p-2 rounded"
-        >
-          CANCEL
-        </button>
-        <button
-          onClick={clearItems}
-          className="bg-blue-600 text-white p-2 rounded"
-        >
-          CLEAR
-        </button>
-        <button
-          onClick={() => setShowNumberPad(true)}
-          className="bg-blue-600 text-white p-2 rounded"
-        >
-          NUMBER PAD
-        </button>
+  onClick={() => setShowCancelConfirm(true)}
+  className="bg-red-600 text-white p-2 rounded"
+>
+  CANCEL
+</button>
+
+        
+        
+        
         <button
           onClick={handlePayClick}
           className="bg-blue-600 text-white p-2 rounded"
@@ -531,6 +527,32 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           </div>
         </div>
       )}
+      {/*cancel order confirmation modal */}
+      {showCancelConfirm && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg text-center space-y-4">
+      <p className="text-lg font-semibold">Do you really want to cancel the order?</p>
+      <div className="flex justify-center gap-4">
+        <button
+          onClick={() => {
+            clearItems();
+            setShowCancelConfirm(false);
+          }}
+          className="bg-red-600 text-white px-4 py-2 rounded"
+        >
+          Yes
+        </button>
+        <button
+          onClick={() => setShowCancelConfirm(false)}
+          className="bg-gray-300 text-black px-4 py-2 rounded"
+        >
+          No
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Customer Modal */}
       {isCustomerModalOpen && (

@@ -1,7 +1,9 @@
 import Header from './Header';
 import MenuGrid from './MenuGrid';
 import KOTPanel from './KOTPanel';
+import Footer from './Footer';
 import { useState } from 'react';
+
 
 export default function POS() {
   const [kotItems, setKotItems] = useState([]);
@@ -26,7 +28,9 @@ export default function POS() {
           });
         }} />
         <KOTPanel kotItems={kotItems} setKotItems={setKotItems} />
-      </div>
+        </div>
+        <Footer/>
+      
     </div>
   );
 }
