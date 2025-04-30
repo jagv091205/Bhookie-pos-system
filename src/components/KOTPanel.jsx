@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
 import { where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
-import PaymentScreen from './PaymentScreen';
 import {
   collection,
   getDocs,
@@ -17,7 +16,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-export default function KOTPanel({ kotItems, setKotItems }) {
+export default function KOTPanel({ kotItems, setKotItems, setShowCashTab}) {
   const [subTotal, setSubTotal] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [total, setTotal] = useState(0);
@@ -521,20 +520,21 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       alert("Please select a payment method.");
       return;
     }
-
+  
+    // ✅ Employee logic remains unchanged
     if (isEmployee) {
       const creditsToUse = Math.min(employeeMealCredits, total);
       const remainingCash = Math.max(total - creditsToUse, 0);
-
+  
       try {
         const mealRef = doc(db, "Employees", customerId, "meal", "1");
         await updateDoc(mealRef, {
           mealCredits: employeeMealCredits - creditsToUse,
         });
-
+  
         setCreditsUsed(creditsToUse);
         setCashDue(remainingCash);
-
+  
         if (remainingCash > 0) {
           alert(`Employee must pay £${remainingCash.toFixed(2)} in cash`);
         }
@@ -544,11 +544,53 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         return;
       }
     }
-
+  
+    // ✅ Add cash session logging if method is cash and not employee
+    if (paymentMethod === "cash" && !isEmployee) {
+      try {
+        const q = query(collection(db, "cashSessions"), where("isClosed", "==", false));
+        const snapshot = await getDocs(q);
+  
+        if (!snapshot.empty) {
+          const sessionDoc = snapshot.docs[0];
+          const sessionRef = doc(db, "cashSessions", sessionDoc.id);
+          const sessionData = sessionDoc.data();
+  
+          // Block if session is paused
+          if (sessionData.isPaused) {
+            alert("Cash session is paused. Please ask the manager to reopen the cashier.");
+            return;
+          }
+  
+          const totalAmount = subTotal - discount; // Use your actual vars
+          const orderNote = kotId ? `Sale KOT #${kotId}` : "Sale";
+  
+          const newTransaction = {
+            type: "in",
+            amount: totalAmount,
+            by: "John", // Replace with your cashier logic
+            time: Timestamp.now(),
+            note: orderNote,
+          };
+  
+          const updatedTransactions = [...(sessionData.transactions || []), newTransaction];
+          await updateDoc(sessionRef, { transactions: updatedTransactions });
+          console.log("Cash transaction recorded.");
+        } else {
+          console.warn("No active cash session found.");
+          alert("No active cash session found. Start session before accepting cash.");
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to log cash transaction:", error);
+      }
+    }
+  
+    // ✅ Final step
     setIsPaymentProcessed(true);
     setIsPaymentModalOpen(false);
   };
-
+  
   return (
     <div className="p-4 w-full max-w-md mx-auto">
       <h2 className="text-2xl font-bold mb-4">ORDER</h2>
@@ -657,25 +699,39 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <button
-          onClick={() => setShowCancelConfirm(true)}
-          className="bg-red-600 text-white p-2 rounded"
-        >
-          CANCEL
-        </button>
+  <button
+    onClick={handlePayClick}
+    className="bg-blue-600 text-white p-2 rounded"
+  >
+    PAY
+  </button>
 
-        <button
-          onClick={handlePayClick}
-          className="bg-blue-600 text-white p-2 rounded"
-        >
-          PAY
-        </button>
-        <button
-          className="bg-blue-600 text-white p-2 rounded"
-        >
-          STORE
-        </button>
-      </div>
+  <button
+    onClick={() => setShowCancelConfirm(true)}
+    className="bg-red-600 text-white p-2 rounded"
+  >
+    CANCEL
+  </button>
+
+  <button
+    onClick={handleGenerateKOT}
+    disabled={!isPaymentProcessed}
+    className={`text-white p-2 rounded ${isPaymentProcessed
+        ? "bg-green-800"
+        : "bg-gray-500 cursor-not-allowed"
+      }`}
+  >
+    SAVE KOT
+  </button>
+
+  <button
+    onClick={() => setShowCashTab(true)}
+    className="bg-blue-600 px-4 py-2 rounded text-white hover:bg-blue-700"
+  >
+    CASH SESSION
+  </button>
+</div>
+
 
       {/* Number Pad Modal */}
       {showNumberPad && (
@@ -905,7 +961,12 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                     Card
                   </button>
                 </div>
-              
+                <button
+                  onClick={handleProcessPayment}
+                  className="bg-blue-600 text-white px-6 py-2 rounded"
+                >
+                  Process
+                </button>
               </>
             )}
           </div>
@@ -914,3 +975,4 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     </div>
   );
 }
+
