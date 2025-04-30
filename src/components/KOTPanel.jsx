@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
 import { where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
+import PaymentScreen from './PaymentScreen';
 import {
   collection,
   getDocs,
@@ -904,12 +905,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                     Card
                   </button>
                 </div>
-                <button
-                  onClick={handleProcessPayment}
-                  className="bg-blue-600 text-white px-6 py-2 rounded"
-                >
-                  Process
-                </button>
+              
               </>
             )}
           </div>
