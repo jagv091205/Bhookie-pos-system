@@ -12,6 +12,10 @@ export default function Footer() {
     navigate("/manager-login");
   };
 
+  const handleReportClick = () =>{
+    navigate("/report")
+  }
+
   return (
     <div className="w-full px-4 py-2">
       <div className="flex flex-wrap justify-start gap-2">
@@ -41,7 +45,7 @@ export default function Footer() {
           HELP
         </button>
 
-        <button
+        <button onClick={handleReportClick}
           className="bg-blue-600 text-white font-bold py-3 px-4 rounded shadow text-sm w-[100px]"
         >
           REPORT

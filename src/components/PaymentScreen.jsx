@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import './PaymentScreen.css'; // Import the CSS file
 
 const PaymentScreen = () => {
   const [amountTendered, setAmountTendered] = useState(0);

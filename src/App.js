@@ -4,7 +4,8 @@ import Login from "./components/Login";
 import POS from "./components/POS";
 import ManagerScreen from "./components/ManagerScreen";
 import ManagerLogin from "./components/ManagerLogin"
-import PaymentScreen from "./components/PaymentScreen";
+import PaymentScreen from "./components/PaymentScreen.jsx";
+import Report from "./components/Report.jsx";
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
           <Route path="/manager-login" element={<ManagerLogin />} />
           <Route path="/manager" element={<ManagerScreen />} />
           <Route path="/PaymentScreen" element={<PaymentScreen />} />         
-
+          <Route path="/Report" element={<Report />} />
          
         </Routes>
       </AuthProvider>
