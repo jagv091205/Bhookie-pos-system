@@ -4,18 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { CSVLink } from "react-csv";
 import { useReactToPrint } from "react-to-print";
 
-const roleMap = {
-  cash01: "cashier",
-  manage01: "manager"
-};
-
 const ReportPage = () => {
-  // Authentication states
-  const [code, setCode] = useState("");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Report states (your existing states)
   const [attendanceData, setAttendanceData] = useState([]);
   const [kotHistory, setKotHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,48 +25,6 @@ const ReportPage = () => {
     const today = new Date();
     return today.toISOString().split("T")[0];
   }
-
-  // Manager authentication handler
-  const handleManagerLogin = async () => {
-    const trimmedCode = code.trim();
-
-    if (!trimmedCode || trimmedCode.length !== 8) {
-      alert("Please enter a valid 8-digit code.");
-      return;
-    }
-
-    setAuthLoading(true);
-
-    try {
-      const userRef = doc(db, "users", trimmedCode);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const isActive = userData["active/inactive"] === true || userData.active === true;
-
-        if (!isActive) {
-          alert("User is inactive.");
-        } else {
-          const roleRef = userData.roleId;
-          const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
-
-          if (roleId === "manage01") {
-            setIsAuthenticated(true);
-          } else {
-            alert("Only managers can access this page.");
-          }
-        }
-      } else {
-        alert("Invalid login code.");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Something went wrong during login.");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
   const fetchAttendanceData = async () => {
     try {
@@ -237,14 +184,12 @@ const ReportPage = () => {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      if (currentView === "attendance") {
-        fetchAttendanceData();
-      } else if (currentView === "kot") {
-        fetchKOTHistory();
-      }
+    if (currentView === "attendance") {
+      fetchAttendanceData();
+    } else if (currentView === "kot") {
+      fetchKOTHistory();
     }
-  }, [selectedDate, currentView, paymentFilter, customerFilter, isAuthenticated]);
+  }, [selectedDate, currentView, paymentFilter, customerFilter]);
 
   const filteredData = attendanceData.filter((log) =>
     log.empName.toLowerCase().includes(empNameFilter.toLowerCase())
@@ -254,48 +199,8 @@ const ReportPage = () => {
     navigate('/');
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCode("");
-  };
-
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
-        <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
-          <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
-          <input
-            type="text"
-            placeholder="Enter 8-digit code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            maxLength={8}
-            className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
-          />
-          <button
-            onClick={handleManagerLogin}
-            disabled={authLoading}
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-          >
-            {authLoading ? "Logging in..." : "Login"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show reports if authenticated
   return (
     <div className="container">
-      {/* Logout button added to the top */}
-      <button 
-        className="logout-btn"
-        onClick={handleLogout}
-      >
-        Logout
-      </button>
-
       {currentView === "home" && (
         <div className="cards-view">
           <button className="close-btn" onClick={handleClose}>×</button>
@@ -423,7 +328,7 @@ const ReportPage = () => {
             >
               Download CSV
             </CSVLink>
-
+            
             <button onClick={handlePrint} className="btn">
               Print Report
             </button>
@@ -461,7 +366,10 @@ const ReportPage = () => {
                       <td>{kot.earnedPoints}</td>
                       <td>{kot.itemsCount}</td>
                       <td>
-                        <button onClick={() => handleViewDetails(kot.id)}>
+                        <button 
+                          onClick={() => handleViewDetails(kot.id)}
+                          className="view-btn"
+                        >
                           View
                         </button>
                       </td>
@@ -552,24 +460,6 @@ const ReportPage = () => {
         .container {
           padding: 20px;
           font-family: Arial, sans-serif;
-          position: relative;
-        }
-
-        .logout-btn {
-          position: absolute;
-          top: 20px;
-          right: 20px;
-          padding: 8px 16px;
-          background-color: #f44336;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          z-index: 1000;
-        }
-
-        .logout-btn:hover {
-          background-color: #d32f2f;
         }
 
         .cards-view {
@@ -656,6 +546,19 @@ const ReportPage = () => {
 
         .btn:hover {
           background-color: #0056b3;
+        }
+
+        .view-btn {
+          padding: 6px 12px;
+          background-color: #28a745;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .view-btn:hover {
+          background-color: #218838;
         }
 
         table {
