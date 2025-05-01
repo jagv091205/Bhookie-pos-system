@@ -10,6 +10,7 @@ import {
   deleteDoc,
   updateDoc,
   getDoc,
+  addDoc,
   runTransaction,
   arrayUnion,
   serverTimestamp,
@@ -17,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useNavigate } from "react-router-dom";
+
 
 const roleMap = {
   cash01: "cashier",
@@ -495,6 +497,7 @@ export default function ManagerScreen() {
       const empRef = doc(db, "Employees", empId);
       const empSnap = await getDoc(empRef);
       if (!empSnap.exists()) return alert("Employee not found");
+      const empName = empSnap.data().name;
 
       const today = new Date();
       const monthDocId = `${today.getFullYear()}-${String(
@@ -504,6 +507,7 @@ export default function ManagerScreen() {
 
       const monthRef = doc(db, "Employees", empId, "attendance", monthDocId);
 
+      const checkInTimestamp = Timestamp.now();
       await runTransaction(db, async (transaction) => {
         const docSnap = await transaction.get(monthRef);
         const newSession = { checkIn: Timestamp.now(), checkOut: null };
@@ -544,17 +548,26 @@ export default function ManagerScreen() {
           empSnap.data().name
         } at ${new Date().toLocaleTimeString()}`,
       ]);
+       // Save attendance log with check-in only
+    await saveSessionToAttendanceLogs(empId, empName, checkInTimestamp, null);
       setEmpId("");
     } catch (err) {
       console.error("Clock In error:", err);
       alert(err.message || "Clock In failed");
     }
+    
+
   };
 
   const handleClockOut = async () => {
     if (!empId) return alert("Please enter Employee ID");
 
     try {
+      const empRef = doc(db, "Employees", empId);
+    const empSnap = await getDoc(empRef);
+    if (!empSnap.exists()) return alert("Employee not found");
+
+    const empName = empSnap.data().name;
       const today = new Date();
       const monthDocId = `${today.getFullYear()}-${String(
         today.getMonth() + 1
@@ -577,6 +590,13 @@ export default function ManagerScreen() {
 
         if (lastSession && !lastSession.checkOut) {
           lastSession.checkOut = Timestamp.now();
+          // Now call your new save-to-log function here
+        await saveSessionToAttendanceLogs(
+          empId,
+          empName,
+          lastSession.checkIn,
+          lastSession.checkOut
+        );
         }
 
         transaction.update(monthRef, {
@@ -651,7 +671,56 @@ export default function ManagerScreen() {
       alert("Failed to load attendance logs");
     }
   };
-
+  const saveSessionToAttendanceLogs = async (empId, empName, checkIn, checkOut) => {
+    try {
+      const todayDate = getTodayDate();
+      const logDocRef = doc(db, "AttendanceLogs", todayDate);
+      const logDocSnap = await getDoc(logDocRef);
+  
+      // Calculate worked hours
+      let worked = "Incomplete";
+      if (checkIn && checkOut) {
+        const diff = checkOut.toDate() - checkIn.toDate();
+        worked = `${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`;
+      }
+  
+      const sessionData = {
+        empId,
+        empName,
+        checkIn: checkIn ? checkIn.toDate().toLocaleTimeString() : "—",
+        checkOut: checkOut ? checkOut.toDate().toLocaleTimeString() : "—",
+        worked,
+      };
+  
+      if (!logDocSnap.exists()) {
+        // If AttendanceLogs doc for today doesn't exist, create it
+        await setDoc(logDocRef, {});
+      }
+  
+      const logsRef = collection(logDocRef, "logs");
+  
+      // Check if a log already exists for this empId
+      const q = query(logsRef, where("empId", "==", empId));
+      const querySnapshot = await getDocs(q);
+  
+      if (!querySnapshot.empty) {
+        // If log exists, update it
+        const existingLogDoc = querySnapshot.docs[0];
+        await updateDoc(existingLogDoc.ref, sessionData);
+        console.log("Attendance log updated ✅");
+      } else {
+        // Else, add a new log
+        await addDoc(logsRef, sessionData);
+        console.log("Attendance log created ✅");
+      }
+  
+    } catch (err) {
+      console.error("Error saving attendance log:", err);
+    }
+  };
+  
+  
+  
   useEffect(() => {
     if (activeTab === "Orders") fetchOrders();
     if (activeTab === "Staff Meal") {
