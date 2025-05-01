@@ -3,6 +3,21 @@
     "default": "bhookie-demo",
     "demo": "bhookie-demo"
   },
-  "targets": {},
+  "targets": {
+    "bhookie-demo": {
+      "hosting": {
+        "demo": [
+          "bhookie-demo"
+        ]
+      }
+    },
+    "bhookiecore": {
+      "hosting": {
+        "demo": [
+          "bhookie-demo"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

@@ -1,5 +1,6 @@
 {
   "name": "bhookie-pos-system",
+  "home": ".",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
