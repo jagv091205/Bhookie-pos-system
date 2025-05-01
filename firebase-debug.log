@@ -1,0 +1,39 @@
+[debug] [2025-05-01T15:35:07.726Z] ----------------------------------------------------------------------
+[debug] [2025-05-01T15:35:07.730Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Jagveer Kaur\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2025-05-01T15:35:07.731Z] CLI Version:   14.2.2
+[debug] [2025-05-01T15:35:07.731Z] Platform:      win32
+[debug] [2025-05-01T15:35:07.731Z] Node Version:  v22.2.0
+[debug] [2025-05-01T15:35:07.731Z] Time:          Thu May 01 2025 21:05:07 GMT+0530 (India Standard Time)
+[debug] [2025-05-01T15:35:07.732Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-05-01T15:35:08.072Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-05-01T15:35:08.072Z] > authorizing via signed-in user (khalsajagveerkaur@gmail.com)
+[debug] [2025-05-01T15:35:08.072Z] [iam] checking project bhookie-demo for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-05-01T15:35:08.074Z] Checked if tokens are valid: false, expires at: 1746114573858
+[debug] [2025-05-01T15:35:08.074Z] Checked if tokens are valid: false, expires at: 1746114573858
+[debug] [2025-05-01T15:35:08.075Z] > refreshing access token with scopes: []
+[debug] [2025-05-01T15:35:08.077Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-05-01T15:35:08.077Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-05-01T15:35:08.400Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-05-01T15:35:08.400Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-05-01T15:35:08.415Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/bhookie-demo:testIamPermissions [none]
+[debug] [2025-05-01T15:35:08.415Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/bhookie-demo:testIamPermissions x-goog-quota-user=projects/bhookie-demo
+[debug] [2025-05-01T15:35:08.415Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bhookie-demo:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-05-01T15:35:10.131Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/bhookie-demo:testIamPermissions 200
+[debug] [2025-05-01T15:35:10.132Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bhookie-demo:testIamPermissions {}
+[debug] [2025-05-01T15:35:10.132Z] [iam] error while checking permissions, command may fail: Authorization failed. This account is missing the following required permissions on project bhookie-demo:
+
+  firebase.projects.get
+  firebasehosting.sites.update
+[debug] [2025-05-01T15:35:10.133Z] Checked if tokens are valid: true, expires at: 1746117307400
+[debug] [2025-05-01T15:35:10.133Z] Checked if tokens are valid: true, expires at: 1746117307400
+[debug] [2025-05-01T15:35:10.133Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/bhookie-demo [none]
+[debug] [2025-05-01T15:35:10.952Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/bhookie-demo 403
+[debug] [2025-05-01T15:35:10.952Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/bhookie-demo {"error":{"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"}}
+[debug] [2025-05-01T15:35:10.954Z] Request to https://firebase.googleapis.com/v1beta1/projects/bhookie-demo had HTTP Error: 403, The caller does not have permission
+[debug] [2025-05-01T15:35:10.956Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects/bhookie-demo had HTTP Error: 403, The caller does not have permission
+    at responseToError (C:\Users\Jagveer Kaur\AppData\Roaming\npm\node_modules\firebase-tools\lib\responseToError.js:52:12)
+    at RetryOperation._fn (C:\Users\Jagveer Kaur\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:312:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[error] 
+[error] Error: Failed to get Firebase project bhookie-demo. Please make sure the project exists and your account has permission to access it.
