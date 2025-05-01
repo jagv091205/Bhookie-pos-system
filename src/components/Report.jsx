@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { useNavigate } from 'react-router-dom';
 
 const AttendanceReport = () => {
   const [attendanceData, setAttendanceData] = useState([]);
@@ -57,15 +58,25 @@ const AttendanceReport = () => {
     log.empName.toLowerCase().includes(empNameFilter.toLowerCase())
   );
 
+  const navigate = useNavigate();
+
+  const handleClose = () => {
+    navigate('./KOTPanel.jsx');  
+  };
+
   return (
     <div className="container">
       {currentView === "home" && (
-        <div className="cards">
-          <div className="card" onClick={() => setCurrentView("attendance")}>
-            Attendance Report
+        <div className="cards-view">
+          <button className="close-btn" onClick={handleClose}>×</button>
+
+          <div className="cards">
+            <div className="card" onClick={() => setCurrentView("attendance")}>
+              Attendance Report
+            </div>
+            <div className="card">KOT Report</div>
+            <div className="card">Sales Report</div>
           </div>
-          <div className="card">KOT Report</div>
-          <div className="card">Sales Report</div>
         </div>
       )}
 
@@ -139,13 +150,17 @@ const AttendanceReport = () => {
           font-family: Arial, sans-serif;
         }
 
-       .cards {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            align-items: center;
-            margin-top: 200px;
-            flex-wrap: wrap;
+        .cards-view {
+          position: relative;
+        }
+
+        .cards {
+          display: flex;
+          gap: 20px;
+          justify-content: center;
+          align-items: center;
+          margin-top: 200px;
+          flex-wrap: wrap;
         }
 
         .card {
@@ -164,12 +179,29 @@ const AttendanceReport = () => {
           justify-content: center;
           align-items: center;
           word-wrap: break-word;
-          text-align: center;
         }
 
         .card:hover {
           background-color: #0056b3;
         }
+
+      .close-btn {
+  position: fixed;
+  top: 20px;
+  right: 30px;
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  font-size: 24px;
+  padding: 1px 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 999;
+}
+
+.close-btn:hover {
+  background: #cc0000;
+}
 
         h1 {
           margin-bottom: 20px;
@@ -180,6 +212,7 @@ const AttendanceReport = () => {
           gap: 15px;
           margin-bottom: 20px;
           align-items: center;
+          flex-wrap: wrap;
         }
 
         input[type="date"],
@@ -216,7 +249,8 @@ const AttendanceReport = () => {
         }
 
         th {
-          background-color:rgb(114, 113, 113);
+          background-color: rgb(114, 113, 113);
+          color: white;
         }
 
         td {
