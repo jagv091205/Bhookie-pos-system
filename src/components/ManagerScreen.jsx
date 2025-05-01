@@ -19,7 +19,6 @@ import {
 import { db } from "../firebase/config";
 import { useNavigate } from "react-router-dom";
 
-
 const roleMap = {
   cash01: "cashier",
   // Add other role mappings if needed
@@ -41,7 +40,7 @@ export default function ManagerScreen() {
   const [cashierId, setCashierId] = useState('');
   const [cashierStatus, setCashierStatus] = useState('');
   const [sessionDocId, setSessionDocId] = useState(null);
-  const { setUser, setSessionId } = useAuth();
+  const { setUser, logout } = useAuth();
   const [filterDate, setFilterDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -51,42 +50,56 @@ export default function ManagerScreen() {
   const [sortOrderAsc, setSortOrderAsc] = useState(true);
   const [selectedOrderInfo, setSelectedOrderInfo] = useState(null);
 
+  // useEffect for handling page close/navigation away
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      // Logout the user when the page is closed or navigated away from
+      logout();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [logout]);
+
   const handleSignInCashier = async () => {
     const trimmedCode = cashierCode.trim();
     if (!trimmedCode) {
       setCashierStatus("Please enter a valid login code.");
       return;
     }
-  
+
     setCashierLoading(true);
     setCashierStatus("Authenticating...");
-  
+
     try {
       const userRef = doc(db, "users", trimmedCode);
       const userSnap = await getDoc(userRef);
-  
+
       if (!userSnap.exists()) {
         setCashierStatus("Invalid login code.");
         return;
       }
-  
+
       const userData = userSnap.data();
       const isActive = userData["active/inactive"] === true || userData.active === true;
-  
+
       if (!isActive) {
         setCashierStatus("User is inactive.");
         return;
       }
-  
+
       const roleRef = userData.roleId;
       const roleId = typeof roleRef === "object" && roleRef.id ? roleRef.id : roleRef;
       const role = roleMap[roleId];
-  
+
       if (!role) {
         setCashierStatus("User role not recognized.");
         return;
       }
-  
+
       // 👉 Check if already signed in
       const attendanceRefCheck = query(
         collection(db, "cashierAttendance"),
@@ -94,14 +107,14 @@ export default function ManagerScreen() {
         where("isSignedIn", "==", true)
       );
       const attendanceSnapCheck = await getDocs(attendanceRefCheck);
-  
+
       if (!attendanceSnapCheck.empty) {
         setCashierStatus("Cashier is already signed in.");
         setCashierCode(""); // Clear input
         setCashierLoading(false); // stop loading
         return;
       }
-  
+
       // Log into sessionHistory (auto-generated docId)
       const sessionRef = doc(collection(db, "sessionHistory"));
       await setDoc(sessionRef, {
@@ -110,18 +123,18 @@ export default function ManagerScreen() {
         role,
         logoutTime: null,
       });
-  
+
       setUser({ id: trimmedCode, ...userData, role });
       setCashierId(trimmedCode);
-  
+
       // Also create/update cashierAttendance
       const attendanceRef = query(
         collection(db, "cashierAttendance"),
         where("cashierId", "==", trimmedCode)
       );
-  
+
       const attendanceSnap = await getDocs(attendanceRef);
-  
+
       if (attendanceSnap.empty) {
         // New cashierAttendance
         const newDoc = doc(collection(db, "cashierAttendance"));
@@ -143,7 +156,7 @@ export default function ManagerScreen() {
           signInTime: serverTimestamp(),
         });
       }
-  
+
       setCashierStatus(`Cashier ${trimmedCode} signed in successfully.`);
       setCashierCode(""); // Clear input
     } catch (error) {
@@ -154,18 +167,16 @@ export default function ManagerScreen() {
     }
   };
 
-  
-
   const handleSignOutCashier = async () => {
     const trimmedCode = cashierCode.trim();
-  
+
     if (!trimmedCode) {
       setCashierStatus("Please enter Cashier ID");
       return;
     }
-  
+
     setCashierStatus('Processing...');
-  
+
     try {
       // 1. Find active sessionHistory (logoutTime == null)
       const sessionQuery = query(
@@ -174,14 +185,14 @@ export default function ManagerScreen() {
         where("logoutTime", "==", null)
       );
       const sessionSnap = await getDocs(sessionQuery);
-  
+
       if (sessionSnap.empty) {
         setCashierStatus("No active session found for this cashier.");
         return;
       }
-  
+
       const sessionRef = doc(db, "sessionHistory", sessionSnap.docs[0].id);
-  
+
       // 2. Find active cashierAttendance
       const attQuery = query(
         collection(db, "cashierAttendance"),
@@ -189,39 +200,39 @@ export default function ManagerScreen() {
         where("isSignedIn", "==", true)
       );
       const attSnap = await getDocs(attQuery);
-  
+
       if (attSnap.empty) {
         setCashierStatus("Cashier is already signed out.");
         return;
       }
-  
+
       const attDoc = attSnap.docs[0];
       const attRef = doc(db, "cashierAttendance", attDoc.id);
       const data = attDoc.data();
-  
+
       if (data.isOpen) {
         await updateDoc(attRef, {
           isOpen: false,
           closeTimes: arrayUnion(Timestamp.now()),
         });
       }
-  
+
       await updateDoc(attRef, {
         isSignedIn: false,
       });
-  
+
       // 3. Update sessionHistory
       await updateDoc(sessionRef, {
         logoutTime: serverTimestamp(),
       });
-  
+
       // ✅ 4. Close any active cashSession (new part you wanted)
       const cashSessionQuery = query(
         collection(db, "cashSessions"),
         where("isClosed", "==", false)
       );
       const cashSessionSnapshot = await getDocs(cashSessionQuery);
-  
+
       if (!cashSessionSnapshot.empty) {
         const cashSessionDoc = cashSessionSnapshot.docs[0];
         const cashSessionRef = doc(db, "cashSessions", cashSessionDoc.id);
@@ -234,7 +245,7 @@ export default function ManagerScreen() {
       } else {
         console.log("No active cash session found to close.");
       }
-  
+
       setCashierStatus("Cashier signed out successfully.");
       setCashierCode(""); // Clear input
     } catch (error) {
@@ -242,9 +253,6 @@ export default function ManagerScreen() {
       setCashierStatus("An error occurred while signing out.");
     }
   };
-  
-
-  
 
   const handleOpenCashier = async (cashierId) => {
     try {
@@ -259,23 +267,23 @@ export default function ManagerScreen() {
         alert("Cashier is not signed in. Cannot open cashier.");
         return;
       }
-  
+
       const attendanceDoc = snapshot.docs[0];
       const attendanceRef = doc(db, "cashierAttendance", attendanceDoc.id);
       const cashierData = attendanceDoc.data();
-  
+
       // 2. Prevent reopening if already open
       if (cashierData.isOpen) {
         alert("Cashier is already open.");
         return;
       }
-  
+
       // 3. Open cashierAttendance
       await updateDoc(attendanceRef, {
         isOpen: true,
         openTimes: arrayUnion(Timestamp.now()),
       });
-  
+
       // 4. Un-pause the active cash session
       const csQ = query(
         collection(db, "cashSessions"),
@@ -287,17 +295,13 @@ export default function ManagerScreen() {
         const csRef = doc(db, "cashSessions", csDoc.id);
         await updateDoc(csRef, { isPaused: false });
       }
-  
+
       alert("Cashier opened successfully.");
     } catch (error) {
       console.error("Open Cashier error:", error);
       alert("Failed to open cashier.");
     }
   };
-  
-
-  
-
 
   const handleCloseCashier = async (cashierId) => {
     try {
@@ -312,23 +316,23 @@ export default function ManagerScreen() {
         alert("Cashier is not signed in. Cannot close cashier.");
         return;
       }
-  
+
       const docSnapshot = snapshot.docs[0];
       const attendanceRef = doc(db, "cashierAttendance", docSnapshot.id);
       const cashierData = docSnapshot.data();
-  
+
       // 2. Prevent closing if already closed
       if (!cashierData.isOpen) {
         alert("Cashier is already closed.");
         return;
       }
-  
+
       // 3. Close cashierAttendance
       await updateDoc(attendanceRef, {
         isOpen: false,
         closeTimes: arrayUnion(Timestamp.now()),
       });
-  
+
       // 4. Pause the active cash session
       const csQ = query(
         collection(db, "cashSessions"),
@@ -340,14 +344,13 @@ export default function ManagerScreen() {
         const csRef = doc(db, "cashSessions", csDoc.id);
         await updateDoc(csRef, { isPaused: true });
       }
-  
+
       alert("Cashier closed successfully.");
     } catch (error) {
       console.error("Close Cashier error:", error);
       alert("Failed to close cashier.");
     }
   };
-  
 
   // Daily reset check
   const checkDailyReset = async () => {
@@ -548,15 +551,13 @@ export default function ManagerScreen() {
           empSnap.data().name
         } at ${new Date().toLocaleTimeString()}`,
       ]);
-       // Save attendance log with check-in only
-    await saveSessionToAttendanceLogs(empId, empName, checkInTimestamp, null);
+      // Save attendance log with check-in only
+      await saveSessionToAttendanceLogs(empId, empName, checkInTimestamp, null);
       setEmpId("");
     } catch (err) {
       console.error("Clock In error:", err);
       alert(err.message || "Clock In failed");
     }
-    
-
   };
 
   const handleClockOut = async () => {
@@ -564,10 +565,10 @@ export default function ManagerScreen() {
 
     try {
       const empRef = doc(db, "Employees", empId);
-    const empSnap = await getDoc(empRef);
-    if (!empSnap.exists()) return alert("Employee not found");
+      const empSnap = await getDoc(empRef);
+      if (!empSnap.exists()) return alert("Employee not found");
 
-    const empName = empSnap.data().name;
+      const empName = empSnap.data().name;
       const today = new Date();
       const monthDocId = `${today.getFullYear()}-${String(
         today.getMonth() + 1
@@ -591,12 +592,12 @@ export default function ManagerScreen() {
         if (lastSession && !lastSession.checkOut) {
           lastSession.checkOut = Timestamp.now();
           // Now call your new save-to-log function here
-        await saveSessionToAttendanceLogs(
-          empId,
-          empName,
-          lastSession.checkIn,
-          lastSession.checkOut
-        );
+          await saveSessionToAttendanceLogs(
+            empId,
+            empName,
+            lastSession.checkIn,
+            lastSession.checkOut
+          );
         }
 
         transaction.update(monthRef, {
@@ -671,19 +672,20 @@ export default function ManagerScreen() {
       alert("Failed to load attendance logs");
     }
   };
+
   const saveSessionToAttendanceLogs = async (empId, empName, checkIn, checkOut) => {
     try {
       const todayDate = getTodayDate();
       const logDocRef = doc(db, "AttendanceLogs", todayDate);
       const logDocSnap = await getDoc(logDocRef);
-  
+
       // Calculate worked hours
       let worked = "Incomplete";
       if (checkIn && checkOut) {
         const diff = checkOut.toDate() - checkIn.toDate();
         worked = `${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`;
       }
-  
+
       const sessionData = {
         empId,
         empName,
@@ -691,18 +693,18 @@ export default function ManagerScreen() {
         checkOut: checkOut ? checkOut.toDate().toLocaleTimeString() : "—",
         worked,
       };
-  
+
       if (!logDocSnap.exists()) {
         // If AttendanceLogs doc for today doesn't exist, create it
         await setDoc(logDocRef, {});
       }
-  
+
       const logsRef = collection(logDocRef, "logs");
-  
+
       // Check if a log already exists for this empId
       const q = query(logsRef, where("empId", "==", empId));
       const querySnapshot = await getDocs(q);
-  
+
       if (!querySnapshot.empty) {
         // If log exists, update it
         const existingLogDoc = querySnapshot.docs[0];
@@ -713,14 +715,12 @@ export default function ManagerScreen() {
         await addDoc(logsRef, sessionData);
         console.log("Attendance log created ✅");
       }
-  
+
     } catch (err) {
       console.error("Error saving attendance log:", err);
     }
   };
-  
-  
-  
+
   useEffect(() => {
     if (activeTab === "Orders") fetchOrders();
     if (activeTab === "Staff Meal") {
@@ -750,7 +750,10 @@ export default function ManagerScreen() {
   return (
     <div className="flex min-h-screen">
       <button
-        onClick={() => navigate("/")}
+        onClick={() => {
+          logout();
+          navigate("/");
+        }}
         className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold"
       >
         &times;
@@ -798,7 +801,6 @@ export default function ManagerScreen() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Cashier Login Code
               </label>
-              You said:
               <input
                 type="text"
                 value={cashierCode}
@@ -854,7 +856,7 @@ export default function ManagerScreen() {
               </button>
             </div>
           </div>
-     
+
         </nav>
       </aside>
 
@@ -1157,4 +1159,3 @@ export default function ManagerScreen() {
     </div>
   );
 }
-

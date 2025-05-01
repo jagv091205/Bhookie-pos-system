@@ -4,7 +4,18 @@ import { useNavigate } from 'react-router-dom';
 import { CSVLink } from "react-csv";
 import { useReactToPrint } from "react-to-print";
 
+const roleMap = {
+  cash01: "cashier",
+  manage01: "manager"
+};
+
 const ReportPage = () => {
+  // Authentication states
+  const [code, setCode] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Report states
   const [attendanceData, setAttendanceData] = useState([]);
   const [kotHistory, setKotHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +36,48 @@ const ReportPage = () => {
     const today = new Date();
     return today.toISOString().split("T")[0];
   }
+
+  // Manager authentication handler
+  const handleManagerLogin = async () => {
+    const trimmedCode = code.trim();
+
+    if (!trimmedCode || trimmedCode.length !== 8) {
+      alert("Please enter a valid 8-digit code.");
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      const userRef = doc(db, "users", trimmedCode);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const isActive = userData["active/inactive"] === true || userData.active === true;
+
+        if (!isActive) {
+          alert("User is inactive.");
+        } else {
+          const roleRef = userData.roleId;
+          const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
+
+          if (roleId === "manage01") {
+            setIsAuthenticated(true);
+          } else {
+            alert("Only managers can access this page.");
+          }
+        }
+      } else {
+        alert("Invalid login code.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Something went wrong during login.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const fetchAttendanceData = async () => {
     try {
@@ -51,10 +104,10 @@ const ReportPage = () => {
 
       const startDate = new Date(selectedDate);
       startDate.setHours(0, 0, 0, 0);
-      
+
       const endDate = new Date(selectedDate);
       endDate.setHours(23, 59, 59, 999);
-      
+
       let baseQuery = query(
         collection(db, "KOT"),
         where("date", ">=", startDate),
@@ -77,7 +130,7 @@ const ReportPage = () => {
 
       const querySnapshot = await getDocs(paginatedQuery);
       const newHistory = [];
-      
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         newHistory.push({
@@ -92,13 +145,13 @@ const ReportPage = () => {
           paymentMethod: data.paymentMethod || "unknown"
         });
       });
-      
+
       if (querySnapshot.docs.length > 0) {
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
       }
-      
+
       setHasMore(querySnapshot.docs.length === 50);
-      
+
       if (loadMore) {
         setKotHistory(prev => [...prev, ...newHistory]);
       } else {
@@ -115,14 +168,17 @@ const ReportPage = () => {
     try {
       const kotRef = doc(db, "KOT", kotId);
       const kotSnap = await getDoc(kotRef);
-      
+
       if (kotSnap.exists()) {
         const kotData = kotSnap.data();
         setSelectedKOT({
           id: kotSnap.id,
           ...kotData,
           date: kotData.date.toDate(),
-          items: Array.isArray(kotData.items) ? kotData.items : []
+          items: Array.isArray(kotData.items) ? kotData.items.map(item => ({
+            ...item,
+            price: item.price || 0 // Ensure price exists, default to 0 if not
+          })) : []
         });
         setIsDetailModalOpen(true);
       }
@@ -184,12 +240,14 @@ const ReportPage = () => {
   };
 
   useEffect(() => {
-    if (currentView === "attendance") {
-      fetchAttendanceData();
-    } else if (currentView === "kot") {
-      fetchKOTHistory();
+    if (isAuthenticated) {
+      if (currentView === "attendance") {
+        fetchAttendanceData();
+      } else if (currentView === "kot") {
+        fetchKOTHistory();
+      }
     }
-  }, [selectedDate, currentView, paymentFilter, customerFilter]);
+  }, [selectedDate, currentView, paymentFilter, customerFilter, isAuthenticated]);
 
   const filteredData = attendanceData.filter((log) =>
     log.empName.toLowerCase().includes(empNameFilter.toLowerCase())
@@ -199,6 +257,33 @@ const ReportPage = () => {
     navigate('/');
   };
 
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+        <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
+          <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
+          <input
+            type="text"
+            placeholder="Enter 8-digit code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            maxLength={8}
+            className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
+          />
+          <button
+            onClick={handleManagerLogin}
+            disabled={authLoading}
+            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+          >
+            {authLoading ? "Logging in..." : "Login"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show reports if authenticated
   return (
     <div className="container">
       {currentView === "home" && (
@@ -328,7 +413,7 @@ const ReportPage = () => {
             >
               Download CSV
             </CSVLink>
-            
+
             <button onClick={handlePrint} className="btn">
               Print Report
             </button>
@@ -361,12 +446,12 @@ const ReportPage = () => {
                         {kot.date.toLocaleDateString()} {kot.date.toLocaleTimeString()}
                       </td>
                       <td>{formatCustomerId(kot.customerId)}</td>
-                      <td>£{kot.amount.toFixed(2)}</td>
+                      <td>£{Number(kot.amount).toFixed(2)}</td>
                       <td>{kot.paymentMethod}</td>
                       <td>{kot.earnedPoints}</td>
                       <td>{kot.itemsCount}</td>
                       <td>
-                        <button 
+                        <button
                           onClick={() => handleViewDetails(kot.id)}
                           className="view-btn"
                         >
@@ -395,7 +480,7 @@ const ReportPage = () => {
               <h3>KOT Details - {selectedKOT.kot_id}</h3>
               <button onClick={() => setIsDetailModalOpen(false)}>×</button>
             </div>
-            
+
             <div className="modal-body">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -420,10 +505,10 @@ const ReportPage = () => {
                 </div>
                 <div>
                   <p className="font-semibold">Total Amount:</p>
-                  <p>£{selectedKOT.amount.toFixed(2)}</p>
+                  <p>£{Number(selectedKOT.amount).toFixed(2)}</p>
                 </div>
               </div>
-              
+
               <h4 className="font-bold">Items:</h4>
               {selectedKOT.items.length > 0 ? (
                 <table>
@@ -440,9 +525,9 @@ const ReportPage = () => {
                       <tr key={index}>
                         <td>{item.id}</td>
                         <td>{item.quantity}</td>
-                        <td>£{item.price?.toFixed(2) || "0.00"}</td>
+                        <td>£{Number(item.price).toFixed(2)}</td>
                         <td>
-                          £{(item.quantity * (item.price || 0)).toFixed(2)}
+                          £{(item.quantity * Number(item.price)).toFixed(2)}
                         </td>
                       </tr>
                     ))}
@@ -460,6 +545,7 @@ const ReportPage = () => {
         .container {
           padding: 20px;
           font-family: Arial, sans-serif;
+          position: relative;
         }
 
         .cards-view {

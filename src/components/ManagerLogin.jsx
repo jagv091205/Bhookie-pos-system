@@ -102,7 +102,7 @@ export default function ManagerLogin() {
         &times;
       </button>
       <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
-        <h2 className="text-2xl font-semibold mb-4 text-center"> Manager Login</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
         <input
           type="text"
           placeholder="Enter 8-digit code"
