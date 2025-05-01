@@ -25,3 +25,4 @@ src/firebase/config.js
 /src/firebase
 /src/firebase
 *.py
+.firebase/hosting.YnVpbGQ.cache
