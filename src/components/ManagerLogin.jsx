@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AutoContext";
 import { db } from "../firebase/config";
 import { doc, getDoc } from "firebase/firestore";
@@ -13,7 +13,21 @@ export default function ManagerLogin() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { setUser, logout } = useAuth();
+
+  // useEffect for handling page close/navigation away
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      // Logout the user when the page is closed or navigated away from
+      logout();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [logout]);
 
   const handleLogin = async () => {
     const trimmedCode = code.trim();
@@ -37,31 +51,31 @@ export default function ManagerLogin() {
         if (!isActive) {
           alert("User is inactive.");
         } else {
-            const roleRef = userData.roleId;
-            const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
-            
-            console.log("roleRef:", roleRef);
-            console.log("roleId:", roleId);
-            console.log("roleMap:", roleMap);
-            
-            if (!roleId) {
-              alert("Role ID is missing from user data.");
-              return;
-            }
-            
-            const role = roleMap[roleId];
-            
-            if (role) {
-              setUser({ id: trimmedCode, ...userData, role });
-            
-              if (role === "manager") {
-                navigate("/manager");
-              } else {
-                alert(`Logged in as ${role}`);
-              }
+          const roleRef = userData.roleId;
+          const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
+
+          console.log("roleRef:", roleRef);
+          console.log("roleId:", roleId);
+          console.log("roleMap:", roleMap);
+
+          if (!roleId) {
+            alert("Role ID is missing from user data.");
+            return;
+          }
+
+          const role = roleMap[roleId];
+
+          if (role) {
+            setUser({ id: trimmedCode, ...userData, role });
+
+            if (role === "manager") {
+              navigate("/manager");
             } else {
-              alert("User role not recognized.");
+              alert(`Logged in as ${role}`);
             }
+          } else {
+            alert("User role not recognized.");
+          }
         }
       } else {
         alert("Invalid login code.");
@@ -74,10 +88,15 @@ export default function ManagerLogin() {
     }
   };
 
+  const handleExitClick = () => {
+    logout();
+    navigate("/"); // Optionally navigate to the home page after logout
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
       <button
-        onClick={() => navigate("/")}
+        onClick={handleExitClick}
         className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold"
       >
         &times;
