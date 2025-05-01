@@ -1,33 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from "react";
+import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
 
 const AttendanceReport = () => {
   const [attendanceData, setAttendanceData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [empNameFilter, setEmpNameFilter] = useState("");
-  const [showReport, setShowReport] = useState(false);  // ← state to toggle report
+  const [currentView, setCurrentView] = useState("home");
 
   const db = getFirestore();
 
   function getTodayDate() {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    return today.toISOString().split("T")[0];
   }
 
   const fetchAttendanceData = async () => {
-    setLoading(true);
     try {
-      const logDocRef = doc(db, "AttendanceLogs", selectedDate);
-      const logDocSnap = await getDoc(logDocRef, { source: 'server' }); ;
-
-      if (logDocSnap.exists()) {
-        const data = logDocSnap.data();
-        const logs = data.logs || [];
-        setAttendanceData(logs);
-      } else {
-        setAttendanceData([]);
-      }
+      const logsRef = collection(db, "AttendanceLogs", selectedDate, "logs");
+      const querySnapshot = await getDocs(logsRef);
+      const logsData = querySnapshot.docs.map((doc) => doc.data());
+      setAttendanceData(logsData);
     } catch (error) {
       console.error("Error fetching attendance data:", error);
     } finally {
@@ -46,7 +39,6 @@ const AttendanceReport = () => {
         log.worked,
       ]),
     ];
-
     const csvContent = rows.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const link = document.createElement("a");
@@ -56,25 +48,28 @@ const AttendanceReport = () => {
   };
 
   useEffect(() => {
-    if (showReport) {
+    if (currentView === "attendance") {
       fetchAttendanceData();
     }
-  }, [selectedDate, showReport]);
+  }, [selectedDate, currentView]);
 
   const filteredData = attendanceData.filter((log) =>
     log.empName.toLowerCase().includes(empNameFilter.toLowerCase())
   );
 
   return (
-    <div>
-      <button
-        className="toggle-btn"
-        onClick={() => setShowReport(!showReport)}
-      >
-        {showReport ? "Hide Attendance Report" : "View Attendance Report"}
-      </button>
+    <div className="container">
+      {currentView === "home" && (
+        <div className="cards">
+          <div className="card" onClick={() => setCurrentView("attendance")}>
+            Attendance Report
+          </div>
+          <div className="card">KOT Report</div>
+          <div className="card">Sales Report</div>
+        </div>
+      )}
 
-      {showReport && (
+      {currentView === "attendance" && (
         <div>
           <h1>Attendance Report for {selectedDate}</h1>
 
@@ -97,9 +92,10 @@ const AttendanceReport = () => {
                 onChange={(e) => setEmpNameFilter(e.target.value)}
               />
             </label>
-            <button onClick={fetchAttendanceData}>Refresh Data</button>
 
             <button onClick={downloadCSV}>Download CSV</button>
+            <button onClick={() => fetchAttendanceData()}>Refresh</button>
+            <button onClick={() => setCurrentView("home")}>Back</button>
           </div>
 
           {loading ? (
@@ -133,26 +129,50 @@ const AttendanceReport = () => {
                 )}
               </tbody>
             </table>
-            
           )}
         </div>
       )}
 
-      <style>{`
-        .toggle-btn {
-          padding: 10px 18px;
-          background-color: #28a745;
+      <style jsx>{`
+        .container {
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+
+       .cards {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            margin-top: 200px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+          background-color: #007bff;
           color: white;
-          border: none;
-          border-radius: 4px;
+          padding: 20px;
+          border-radius: 10px;
+          text-align: center;
+          width: 200px;
+          height: 150px;
           cursor: pointer;
-          margin-bottom: 20px;
-          font-size: 15px;
+          font-size: 18px;
+          transition: 0.3s;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          word-wrap: break-word;
+          text-align: center;
+        }
+
+        .card:hover {
+          background-color: #0056b3;
         }
 
         h1 {
           margin-bottom: 20px;
-          font-family: Arial, sans-serif;
         }
 
         .filters {
@@ -160,7 +180,6 @@ const AttendanceReport = () => {
           gap: 15px;
           margin-bottom: 20px;
           align-items: center;
-          font-family: Arial, sans-serif;
         }
 
         input[type="date"],
@@ -179,11 +198,14 @@ const AttendanceReport = () => {
           cursor: pointer;
         }
 
+        button:hover {
+          background-color: #0056b3;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
           margin-top: 10px;
-          font-family: Arial, sans-serif;
         }
 
         th,
@@ -194,7 +216,7 @@ const AttendanceReport = () => {
         }
 
         th {
-          background-color: #f4f4f4;
+          background-color:rgb(114, 113, 113);
         }
 
         td {
