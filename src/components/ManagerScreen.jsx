@@ -705,14 +705,14 @@ export default function ManagerScreen() {
           >
             Staff Meal
           </button>
-          <button
+          {/* <button
             className={`block w-full text-left px-4 py-2 rounded ${
               activeTab === "Cash" ? "bg-gray-700" : "hover:bg-gray-700"
             }`}
             onClick={() => setActiveTab("Cash")}
           >
             Cash
-          </button>
+          </button> */}
           <button
             className={`block w-full text-left px-4 py-2 rounded ${
               activeTab === "Attendance" ? "bg-gray-700" : "hover:bg-gray-700"
