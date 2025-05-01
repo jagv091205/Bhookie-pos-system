@@ -1,20 +1,80 @@
 import React, { useState, useEffect } from "react";
 import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from "../contexts/AutoContext";
 
-const AttendanceReport = () => {
+const roleMap = {
+  cash01: "cashier",
+  manage01: "manager"
+};
+
+const ReportPage = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [empNameFilter, setEmpNameFilter] = useState("");
   const [currentView, setCurrentView] = useState("home");
-
+  const [code, setCode] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { setUser, logout } = useAuth();
+  const navigate = useNavigate();
   const db = getFirestore();
 
   function getTodayDate() {
     const today = new Date();
     return today.toISOString().split("T")[0];
   }
+
+  const handleManagerLogin = async () => {
+    const trimmedCode = code.trim();
+
+    if (!trimmedCode || trimmedCode.length !== 8) {
+      alert("Please enter a valid 8-digit code.");
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      const userRef = doc(db, "users", trimmedCode);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const isActive =
+          userData["active/inactive"] === true || userData.active === true;
+
+        if (!isActive) {
+          alert("User is inactive.");
+        } else {
+          const roleRef = userData.roleId;
+          const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
+
+          if (!roleId) {
+            alert("Role ID is missing from user data.");
+            return;
+          }
+
+          const role = roleMap[roleId];
+
+          if (role === "manager") {
+            setUser({ id: trimmedCode, ...userData, role });
+            setIsAuthenticated(true);
+          } else {
+            alert("Only managers can access this page.");
+          }
+        }
+      } else {
+        alert("Invalid login code.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Something went wrong during login.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const fetchAttendanceData = async () => {
     try {
@@ -58,17 +118,47 @@ const AttendanceReport = () => {
     log.empName.toLowerCase().includes(empNameFilter.toLowerCase())
   );
 
-  const navigate = useNavigate();
-
   const handleClose = () => {
-    navigate('./KOTPanel.jsx');  
+    navigate('/'); // Navigate back to POS screen
   };
+
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+    setCode("");
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+        <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
+          <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
+          <input
+            type="text"
+            placeholder="Enter 8-digit code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            maxLength={8}
+            className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
+          />
+          <button
+            onClick={handleManagerLogin}
+            disabled={authLoading}
+            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+          >
+            {authLoading ? "Logging in..." : "Login"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
       {currentView === "home" && (
         <div className="cards-view">
           <button className="close-btn" onClick={handleClose}>×</button>
+          
 
           <div className="cards">
             <div className="card" onClick={() => setCurrentView("attendance")}>
@@ -185,23 +275,41 @@ const AttendanceReport = () => {
           background-color: #0056b3;
         }
 
-      .close-btn {
-  position: fixed;
-  top: 20px;
-  right: 30px;
-  background: #ff4d4f;
-  color: white;
-  border: none;
-  font-size: 24px;
-  padding: 1px 10px;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 999;
-}
+        .close-btn {
+          position: fixed;
+          top: 20px;
+          right: 30px;
+          background: #ff4d4f;
+          color: white;
+          border: none;
+          font-size: 24px;
+          padding: 1px 10px;
+          border-radius: 50%;
+          cursor: pointer;
+          z-index: 999;
+        }
 
-.close-btn:hover {
-  background: #cc0000;
-}
+        .logout-btn {
+          position: fixed;
+          top: 20px;
+          right: 80px;
+          background: #f5222d;
+          color: white;
+          border: none;
+          font-size: 16px;
+          padding: 5px 15px;
+          border-radius: 4px;
+          cursor: pointer;
+          z-index: 999;
+        }
+
+        .close-btn:hover {
+          background: #cc0000;
+        }
+
+        .logout-btn:hover {
+          background: #cf1322;
+        }
 
         h1 {
           margin-bottom: 20px;
@@ -261,4 +369,4 @@ const AttendanceReport = () => {
   );
 };
 
-export default AttendanceReport;
+export default ReportPage;
