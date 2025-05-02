@@ -6,6 +6,7 @@ import ManagerScreen from "./components/ManagerScreen";
 import ManagerLogin from "./components/ManagerLogin"
 import PaymentScreen from "./components/PaymentScreen.jsx";
 import Report from "./components/Report.jsx";
+import Help from "./components/Help.jsx"
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
     <Router>
       <AuthProvider>
         <Routes>
+          <Route path="/help" element={<Help />} />
           <Route path="/employee-login" element={<Login />} /> 
           <Route path="/" element={<POS />} />
           <Route path="/manager-login" element={<ManagerLogin />} />

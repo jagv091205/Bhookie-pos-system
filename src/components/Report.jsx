@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, where, limit, startAfter } from "firebase/firestore";
-import { useNavigate } from 'react-router-dom';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  limit,
+  startAfter,
+} from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 import { CSVLink } from "react-csv";
 import { useReactToPrint } from "react-to-print";
 
 const roleMap = {
   cash01: "cashier",
-  manage01: "manager"
+  manage01: "manager",
 };
 
 const ReportPage = () => {
@@ -29,8 +40,25 @@ const ReportPage = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [customerFilter, setCustomerFilter] = useState("");
+  const [itemNameFilter, setItemNameFilter] = useState("");
   const reportRef = React.useRef();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (currentView === "attendance") {
+        fetchAttendanceData();
+      } else if (["kot", "sales"].includes(currentView)) {
+        fetchKOTHistory();
+      }
+    }
+  }, [
+    selectedDate,
+    currentView,
+    paymentFilter,
+    customerFilter,
+    isAuthenticated,
+  ]);
 
   function getTodayDate() {
     const today = new Date();
@@ -54,13 +82,15 @@ const ReportPage = () => {
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        const isActive = userData["active/inactive"] === true || userData.active === true;
+        const isActive =
+          userData["active/inactive"] === true || userData.active === true;
 
         if (!isActive) {
           alert("User is inactive.");
         } else {
           const roleRef = userData.roleId;
-          const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
+          const roleId =
+            roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
 
           if (roleId === "manage01") {
             setIsAuthenticated(true);
@@ -116,11 +146,17 @@ const ReportPage = () => {
       );
 
       if (paymentFilter !== "all") {
-        baseQuery = query(baseQuery, where("paymentMethod", "==", paymentFilter));
+        baseQuery = query(
+          baseQuery,
+          where("paymentMethod", "==", paymentFilter)
+        );
       }
 
       if (customerFilter) {
-        baseQuery = query(baseQuery, where("customerId", "==", `customers/${customerFilter}`));
+        baseQuery = query(
+          baseQuery,
+          where("customerId", "==", `customers/${customerFilter}`)
+        );
       }
 
       let paginatedQuery = query(baseQuery, limit(50));
@@ -141,8 +177,8 @@ const ReportPage = () => {
           customerId: data.customerId || null,
           earnedPoints: data.earnedPoints || 0,
           userId: data.user_id,
-          itemsCount: Array.isArray(data.items) ? data.items.length : 0,
-          paymentMethod: data.paymentMethod || "unknown"
+          items: data.items || [],
+          paymentMethod: data.paymentMethod || "unknown",
         });
       });
 
@@ -153,7 +189,7 @@ const ReportPage = () => {
       setHasMore(querySnapshot.docs.length === 50);
 
       if (loadMore) {
-        setKotHistory(prev => [...prev, ...newHistory]);
+        setKotHistory((prev) => [...prev, ...newHistory]);
       } else {
         setKotHistory(newHistory);
       }
@@ -175,16 +211,35 @@ const ReportPage = () => {
           id: kotSnap.id,
           ...kotData,
           date: kotData.date.toDate(),
-          items: Array.isArray(kotData.items) ? kotData.items.map(item => ({
-            ...item,
-            price: item.price || 0 // Ensure price exists, default to 0 if not
-          })) : []
+          items: Array.isArray(kotData.items)
+            ? kotData.items.map((item) => ({
+                ...item,
+                price: item.price || 0,
+              }))
+            : [],
         });
         setIsDetailModalOpen(true);
       }
     } catch (error) {
       console.error("Error fetching KOT details:", error);
     }
+  };
+
+  const formatSalesCSVData = () => {
+    return kotHistory.flatMap((kot) =>
+      kot.items.map((item) => ({
+        "KOT ID": kot.kot_id,
+        Date: kot.date.toLocaleDateString(),
+        Time: kot.date.toLocaleTimeString(),
+        "Item Name": item.name,
+        Quantity: item.quantity,
+        "Unit Price": item.price,
+        "Total Price": item.quantity * item.price,
+        Customer: formatCustomerId(kot.customerId),
+        "Payment Method": kot.paymentMethod,
+        "Employee ID": kot.userId,
+      }))
+    );
   };
 
   const downloadCSV = () => {
@@ -207,16 +262,16 @@ const ReportPage = () => {
   };
 
   const formatKOTCSVData = () => {
-    return kotHistory.map(kot => ({
+    return kotHistory.map((kot) => ({
       "KOT ID": kot.kot_id,
-      "Date": kot.date.toLocaleDateString(),
-      "Time": kot.date.toLocaleTimeString(),
-      "Customer ID": kot.customerId ? kot.customerId.split('/')[1] : "Walk-in",
-      "Amount": `£${kot.amount.toFixed(2)}`,
+      Date: kot.date.toLocaleDateString(),
+      Time: kot.date.toLocaleTimeString(),
+      "Customer ID": kot.customerId ? kot.customerId.split("/")[1] : "Walk-in",
+      Amount: `£${kot.amount.toFixed(2)}`,
       "Payment Method": kot.paymentMethod,
       "Earned Points": kot.earnedPoints,
-      "Items Count": kot.itemsCount,
-      "User ID": kot.userId
+      "Items Count": kot.items.length,
+      "User ID": kot.userId,
     }));
   };
 
@@ -231,44 +286,37 @@ const ReportPage = () => {
         tr:nth-child(even) { background-color: #f9fafb !important; }
       }
     `,
-    documentTitle: `KOT_Report_${selectedDate}`
+    documentTitle: `Report_${selectedDate}`,
   });
 
   const formatCustomerId = (customerId) => {
     if (!customerId) return "Walk-in";
-    return customerId.split('/')[1];
+    return customerId.split("/")[1];
   };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (currentView === "attendance") {
-        fetchAttendanceData();
-      } else if (currentView === "kot") {
-        fetchKOTHistory();
-      }
-    }
-  }, [selectedDate, currentView, paymentFilter, customerFilter, isAuthenticated]);
 
   const filteredData = attendanceData.filter((log) =>
     log.empName.toLowerCase().includes(empNameFilter.toLowerCase())
   );
 
   const handleClose = () => {
-    navigate('/');
+    navigate("/");
   };
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
-<button 
-  onClick={handleClose}
-  className="fixed top-5 right-7  bg-gray-600  text-white border-none text-2x1 px-3 py-1 rounded-full cursor-pointer z-[9999] hover:bg-gray-800">
-  X
-</button>
+        <button
+          onClick={handleClose}
+          className="fixed top-5 right-7 bg-gray-600 text-white border-none text-2xl px-3 py-1 rounded-full cursor-pointer z-[9999] hover:bg-gray-800"
+        >
+          X
+        </button>
 
         <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
-          <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-center">
+            Manager Login
+          </h2>
           <input
             type="text"
             placeholder="Enter 8-digit code"
@@ -295,7 +343,9 @@ const ReportPage = () => {
     <div className="container">
       {currentView === "home" && (
         <div className="cards-view">
-          <button className="close-btn" onClick={handleClose}>×</button>
+          <button className="close-btn" onClick={handleClose}>
+            ×
+          </button>
 
           <div className="cards">
             <div className="card" onClick={() => setCurrentView("attendance")}>
@@ -304,8 +354,118 @@ const ReportPage = () => {
             <div className="card" onClick={() => setCurrentView("kot")}>
               KOT Report
             </div>
-            <div className="card">Sales Report</div>
+            <div className="card" onClick={() => setCurrentView("sales")}>
+              Sales Report
+            </div>
           </div>
+        </div>
+      )}
+
+      {currentView === "sales" && (
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h1>Sales Report for {selectedDate}</h1>
+            <button onClick={() => setCurrentView("home")}>Back</button>
+          </div>
+
+          <div className="filters">
+            <label>
+              Select Date:
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Item Name:
+              <input
+                type="text"
+                value={itemNameFilter}
+                onChange={(e) => setItemNameFilter(e.target.value)}
+                placeholder="Search items..."
+              />
+            </label>
+
+            <label>
+              Payment Method:
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+              >
+                <option value="all">All Payments</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="credit">Credit</option>
+              </select>
+            </label>
+
+            <CSVLink
+              data={formatSalesCSVData()}
+              filename={`Sales_Report_${selectedDate}.csv`}
+              className="btn"
+            >
+              Download CSV
+            </CSVLink>
+
+            <button onClick={handlePrint} className="btn">
+              Print Report
+            </button>
+          </div>
+
+          <div ref={reportRef}>
+            {loading ? (
+              <div>Loading sales data...</div>
+            ) : kotHistory.length === 0 ? (
+              <div>No sales found for selected date</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>KOT ID</th>
+                    <th>Item Name</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Total Price</th>
+                    <th>Date/Time</th>
+                    <th>Customer</th>
+                    <th>Payment Method</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kotHistory
+                    .flatMap((kot) =>
+                      kot.items
+                        .filter((item) =>
+                          item.name
+                            .toLowerCase()
+                            .includes(itemNameFilter.toLowerCase())
+                        ) // Added missing closing parenthesis here
+                        .map((item) => ({ kot, item }))
+                    )
+                    .map(({ kot, item }, index) => (
+                      <tr key={`${kot.id}-${index}`}>
+                        <td>{kot.kot_id}</td>
+                        <td>{item.name}</td>
+                        <td>{item.quantity}</td>
+                        <td>£{item.price?.toFixed(2)}</td>
+                        <td>£{(item.quantity * item.price)?.toFixed(2)}</td>
+                        <td>{kot.date.toLocaleString()}</td>
+                        <td>{formatCustomerId(kot.customerId)}</td>
+                        <td>{kot.paymentMethod}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {hasMore && !loading && (
+            <button onClick={() => fetchKOTHistory(true)} className="btn">
+              Load More
+            </button>
+          )}
         </div>
       )}
 
@@ -333,9 +493,15 @@ const ReportPage = () => {
               />
             </label>
 
-            <button onClick={downloadCSV} className="btn">Download CSV</button>
-            <button onClick={() => fetchAttendanceData() }className="btn">Refresh</button>
-            <button onClick={() => setCurrentView("home")}className="btn">Back</button>
+            <button onClick={downloadCSV} className="btn">
+              Download CSV
+            </button>
+            <button onClick={() => fetchAttendanceData()} className="btn">
+              Refresh
+            </button>
+            <button onClick={() => setCurrentView("home")} className="btn">
+              Back
+            </button>
           </div>
 
           {loading ? (
@@ -450,13 +616,14 @@ const ReportPage = () => {
                     <tr key={kot.id}>
                       <td>{kot.kot_id}</td>
                       <td>
-                        {kot.date.toLocaleDateString()} {kot.date.toLocaleTimeString()}
+                        {kot.date.toLocaleDateString()}{" "}
+                        {kot.date.toLocaleTimeString()}
                       </td>
                       <td>{formatCustomerId(kot.customerId)}</td>
                       <td>£{Number(kot.amount).toFixed(2)}</td>
                       <td>{kot.paymentMethod}</td>
                       <td>{kot.earnedPoints}</td>
-                      <td>{kot.itemsCount}</td>
+                      <td>{kot.items.length}</td>
                       <td>
                         <button
                           onClick={() => handleViewDetails(kot.id)}
@@ -522,6 +689,7 @@ const ReportPage = () => {
                   <thead>
                     <tr>
                       <th>Item ID</th>
+                      <th>Name</th>
                       <th>Qty</th>
                       <th>Price</th>
                       <th>Total</th>
@@ -531,6 +699,7 @@ const ReportPage = () => {
                     {selectedKOT.items.map((item, index) => (
                       <tr key={index}>
                         <td>{item.id}</td>
+                        <td>{item.name}</td>
                         <td>{item.quantity}</td>
                         <td>£{Number(item.price).toFixed(2)}</td>
                         <td>
@@ -608,8 +777,6 @@ const ReportPage = () => {
           background: #cc0000;
         }
 
-       
-}
         h1 {
           margin-bottom: 20px;
         }
