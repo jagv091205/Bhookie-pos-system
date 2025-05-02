@@ -15,6 +15,9 @@ export default function Footer() {
   const handleReportClick = () =>{
     navigate("/report")
   }
+  const handleHelpClick = () =>{
+    navigate("/Help")
+  }
 
   return (
     <div className="w-full px-4 py-2">
@@ -38,8 +41,8 @@ export default function Footer() {
         >
           MANAGER<br />SCREEN
         </button>
-
-        <button
+ 
+        <button onClick={handleHelpClick}
           className="bg-gray-800 text-white font-bold py-3 px-4 rounded shadow text-sm w-[100px]"
         >
           HELP
