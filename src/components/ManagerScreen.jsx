@@ -43,7 +43,8 @@ export default function ManagerScreen() {
   const { setUser, logout } = useAuth();
   const [filterDate, setFilterDate] = useState(() => {
     const today = new Date();
-    return today.toISOString().split("T")[0];
+    // Use local date components instead of ISO string
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -463,22 +464,35 @@ export default function ManagerScreen() {
     }
   };
 
+  // In ManagerScreen component
   const fetchOrders = async () => {
     try {
       let q = collection(db, "KOT");
+      
       if (filterDate) {
-        const selectedDate = new Date(filterDate);
-        selectedDate.setHours(0, 0, 0, 0);
-        const nextDate = new Date(selectedDate);
-        nextDate.setDate(nextDate.getDate() + 1);
-
+        // Parse filterDate as LOCAL date (not UTC)
+        const [year, month, day] = filterDate.split('-');
+        const selectedDate = new Date(year, month - 1, day);
+        
+        // Start of day (00:00:00 LOCAL time)
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+  
+        // End of day (23:59:59.999 LOCAL time)
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+  
+        // Convert to Firestore Timestamps
+        const startTimestamp = Timestamp.fromDate(startOfDay);
+        const endTimestamp = Timestamp.fromDate(endOfDay);
+  
         q = query(
           q,
-          where("date", ">=", selectedDate),
-          where("date", "<", nextDate)
+          where("date", ">=", startTimestamp),
+          where("date", "<=", endTimestamp)
         );
       }
-
+  
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
