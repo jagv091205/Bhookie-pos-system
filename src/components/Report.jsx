@@ -261,6 +261,12 @@ const ReportPage = () => {
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+<button 
+  onClick={handleClose}
+  className="fixed top-5 right-7  bg-gray-600  text-white border-none text-2x1 px-3 py-1 rounded-full cursor-pointer z-[9999] hover:bg-gray-800">
+  X
+</button>
+
         <div className="bg-white shadow-md p-6 rounded w-full max-w-sm">
           <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
           <input
@@ -271,6 +277,7 @@ const ReportPage = () => {
             maxLength={8}
             className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
           />
+
           <button
             onClick={handleManagerLogin}
             disabled={authLoading}
@@ -601,6 +608,8 @@ const ReportPage = () => {
           background: #cc0000;
         }
 
+       
+}
         h1 {
           margin-bottom: 20px;
         }
