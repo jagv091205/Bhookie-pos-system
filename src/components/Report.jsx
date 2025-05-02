@@ -326,9 +326,9 @@ const ReportPage = () => {
               />
             </label>
 
-            <button onClick={downloadCSV}>Download CSV</button>
-            <button onClick={() => fetchAttendanceData()}>Refresh</button>
-            <button onClick={() => setCurrentView("home")}>Back</button>
+            <button onClick={downloadCSV} className="btn">Download CSV</button>
+            <button onClick={() => fetchAttendanceData() }className="btn">Refresh</button>
+            <button onClick={() => setCurrentView("home")}className="btn">Back</button>
           </div>
 
           {loading ? (
