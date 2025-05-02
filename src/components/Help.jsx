@@ -355,7 +355,7 @@ export default function Help() {
               </svg>
             </button>
             <div className="mt-2 text-gray-600 text-sm">
-              Manager approval is required for returns without receipts. Navigate to Manager Mode > Returns > Manual Return. You'll need to verify the customer's ID and the reason for return.
+              Manager approval is required for returns without receipts. Navigate to Manager Mode Returns  Manual Return. You'll need to verify the customer's ID and the reason for return.
             </div>
           </div>
           
