@@ -692,48 +692,39 @@ export default function ManagerScreen() {
       const todayDate = getTodayDate();
       const logDocRef = doc(db, "AttendanceLogs", todayDate);
       const logDocSnap = await getDoc(logDocRef);
-
+  
       // Calculate worked hours
       let worked = "Incomplete";
       if (checkIn && checkOut) {
         const diff = checkOut.toDate() - checkIn.toDate();
         worked = `${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`;
       }
-
+  
       const sessionData = {
         empId,
         empName,
         checkIn: checkIn ? checkIn.toDate().toLocaleTimeString() : "—",
         checkOut: checkOut ? checkOut.toDate().toLocaleTimeString() : "—",
         worked,
+        sessionTimestamp: new Date().toISOString(), // optional, to track when this log was created
       };
-
+  
+      // If AttendanceLogs doc for today doesn't exist, create it
       if (!logDocSnap.exists()) {
-        // If AttendanceLogs doc for today doesn't exist, create it
         await setDoc(logDocRef, {});
       }
-
+  
       const logsRef = collection(logDocRef, "logs");
-
-      // Check if a log already exists for this empId
-      const q = query(logsRef, where("empId", "==", empId));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        // If log exists, update it
-        const existingLogDoc = querySnapshot.docs[0];
-        await updateDoc(existingLogDoc.ref, sessionData);
-        console.log("Attendance log updated ✅");
-      } else {
-        // Else, add a new log
-        await addDoc(logsRef, sessionData);
-        console.log("Attendance log created ✅");
-      }
-
+  
+      // Always add a new log (don't overwrite)
+      await addDoc(logsRef, sessionData);
+      console.log("Attendance session log created ✅");
+  
     } catch (err) {
-      console.error("Error saving attendance log:", err);
+      console.error("Error saving attendance session log:", err);
     }
   };
+  
 
   useEffect(() => {
     if (activeTab === "Orders") fetchOrders();
