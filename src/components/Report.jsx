@@ -543,9 +543,8 @@ const ReportPage = () => {
         <div>
           <div className="flex justify-between items-center mb-4">
             <h1>KOT Report for {selectedDate}</h1>
-            <button onClick={() => setCurrentView("home")}>Back</button>
           </div>
-
+         
           <div className="filters">
             <label>
               Select Date:
@@ -586,11 +585,14 @@ const ReportPage = () => {
             >
               Download CSV
             </CSVLink>
+          
+          <button onClick={() => fetchKOTHistory()} className="btn">
+                Refresh
+              </button>
+              <button onClick={() => setCurrentView("home")} className="btn">Back</button>
 
-            <button onClick={handlePrint} className="btn">
-              Print Report
-            </button>
           </div>
+              
 
           <div ref={reportRef}>
             {loading ? (
@@ -798,7 +800,7 @@ const ReportPage = () => {
         }
 
         .btn {
-          padding: 8px 16px;
+          padding: 8px 10px;
           background-color: #007bff;
           color: white;
           border: none;
