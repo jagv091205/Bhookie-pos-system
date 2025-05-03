@@ -93,14 +93,14 @@ export default function MenuGrid({ onAddItem = () => {} }) {
   };
 
   return (
-    <div className="flex w-full h-[calc(120vh-260px)]">
+    <div className="flex w-full h-[calc(125vh-230px)]">
       {/* Left: Categories */}
-      <div className="w-[200px] bg-purple-800 text-white p-2 flex flex-col gap-3 overflow-y-auto">
+      <div className="w-[150px] bg-purple-800 text-white p-1 flex flex-col gap-1 overflow-y-auto">
         {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCategoryId(cat.id)}
-            className={`py-4 px-4 rounded text-left tracking-wide ${
+            className={`py-2 px-2 rounded text-left tracking-wide ${
               selectedCategoryId === cat.id
                 ? "bg-white text-purple-800"
                 : "bg-purple-700"
@@ -112,16 +112,16 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       </div>
 
       {/* Right: Items */}
-      <div className="flex-1 p-6 bg-purple-100 overflow-y-auto">
+      <div className="flex-1 p-4 bg-purple-200 overflow-y-auto">
         {error ? (
           <div className="text-red-500">{error}</div>
         ) : selectedCategoryId ? (
-          <div className="grid grid-cols-9 md:grid-cols-4 lg:grid-cols-7 gap-1">
+          <div className="grid grid-cols-10 md:grid-cols-10 lg:grid-cols-3 gap-1">
             {filteredItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleItemClick(item)}
-                className="rounded p-2 shadow-md text-white text-center flex flex-col justify-center items-center"
+                className="rounded p-1 shadow-md text-white text-center flex flex-col justify-center items-center"
                 style={{
                   backgroundColor:
                     item.itemName.toLowerCase().includes("chicken")
@@ -132,12 +132,12 @@ export default function MenuGrid({ onAddItem = () => {} }) {
                 }}
               >
                 <div>{item.itemName.toUpperCase()}</div>
-                <div className="text-xl mt-2">£{item.price}</div>
+                <div className="text-xl mt-3">£{item.price}</div>
               </button>
             ))}
           </div>
         ) : (
-          <div className="text-gray-400 font-medium text-lg">
+          <div className="text-gray-300 font-medium text-lg">
             Select a category to view items
           </div>
         )}
@@ -145,9 +145,9 @@ export default function MenuGrid({ onAddItem = () => {} }) {
 
       {/* Sauce Popup */}
       {showSaucePopup && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg max-w-lg w-full">
-            <h2 className="text-xl font-bold mb-4 text-purple-800">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-40">
+          <div className="bg-white rounded-lg p-5 shadow-lg max-w-lg w-full">
+            <h2 className="text-xl font-bold mb-5 text-purple-900">
               Select Sauce for {selectedItem.itemName}
             </h2>
 
@@ -157,19 +157,19 @@ export default function MenuGrid({ onAddItem = () => {} }) {
                   <button
                     key={index}
                     onClick={() => handleSelectSauce(sauce)}
-                    className="bg-green-300 hover:bg-green-400 text-black px-4 py-2 rounded text-sm"
+                    className="bg-green-300 hover:bg-green-300 text-black px-3 py-3 rounded text-sm"
                   >
                     {sauce}
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="text-gray-500 mb-4">No sauces available</div>
+              <div className="text-gray-300 mb-3">No sauces available</div>
             )}
 
             <button
               onClick={() => handleSelectSauce(null)}
-              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="mt-4 px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-600"
             >
               No Sauce
             </button>
@@ -179,7 +179,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
                 setShowSaucePopup(false);
                 setSelectedItem(null);
               }}
-              className="mt-2 ml-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              className="mt-2 ml-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-600"
             >
               Cancel
             </button>

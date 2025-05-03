@@ -18,8 +18,8 @@ export default function Header() {
 
   return (
     <div className="bg-gray-800 text-white flex justify-between items-center">
-      <h1 className="text-1g font-bold">Bhookie POS</h1>
-      <div className="flex gap-6 items-center text-gray-300"> 
+      <h1 className="text-6g font-bold">Bhookie POS</h1>
+      <div className="flex gap-9 items-center text-gray-300"> 
       {user && (
         <span className="text-white ">
         Welcome,<span className="font-semibold"> {user.name}</span> ({user.role})

@@ -2,6 +2,7 @@ import Header from './Header';
 import MenuGrid from './MenuGrid';
 import EmployeeCashTab from "./EmployeeCashTab";
 import KOTPanel from './KOTPanel';
+import PaymentScreen from './PaymentScreen';
 import Footer from './Footer';
 import { useState } from 'react';
 import { db } from "../firebase/config";
@@ -51,7 +52,7 @@ export default function POS() {
   return (
     <div>
       <Header />
-      <div className="flex">
+      <div className="flex" flex-col h-screen>
         <MenuGrid onAddItem={(item) => {
           setKotItems(prevItems => {
             const existingIndex = prevItems.findIndex(
@@ -67,12 +68,15 @@ export default function POS() {
             return [...prevItems, item];
           });
         }} />
+        <div className="w-[80%] overflow-y-auto">
         <KOTPanel kotItems={kotItems} setKotItems={setKotItems} setShowCashTab={handleOpenCashTab} />
         </div>
+        </div>
         <Footer/>
+
         {showCashTab && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+          <div className="bg-white p-5 rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Cash Session</h2>
             <EmployeeCashTab onClose={() => setShowCashTab(false)} />
             <button

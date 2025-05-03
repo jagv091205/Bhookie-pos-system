@@ -1,77 +1,214 @@
 import React, { useState } from 'react';
 
-const PaymentScreen = () => {
-  const [amountTendered, setAmountTendered] = useState(0);
-  const balanceDue = 399.26;
-  const changeDue = amountTendered - balanceDue;
+const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
+  const [tendered, setTendered] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('');
 
-  const handleNumberClick = (number) => {
-    setAmountTendered(parseFloat(`${amountTendered}${number}`));
+  const exchangeRate = 0.80; // Example exchange rate (GBP to USD), adjust as needed
+  const amountInPounds = amount * exchangeRate;
+  const tenderedInPounds = tendered * exchangeRate;
+  const balanceDueInPounds = amountInPounds - tenderedInPounds;
+  const changeDueInPounds = Math.max(0, tenderedInPounds - amountInPounds);
+
+  const handleNumberInput = (value) => {
+    if (value === 'C') {
+      setTendered(0);
+    } else if (value === '00') {
+      setTendered((prev) => prev * 100);
+    } else {
+      setTendered((prev) => parseFloat(`${prev}${value}`));
+    }
   };
 
-  const handleClearClick = () => {
-    setAmountTendered(0);
+  const handleClear = () => {
+    setTendered(0);
   };
 
-  const handleQuickCash = (amount) => {
-    setAmountTendered(amountTendered + amount);
+  const quickCashValuesInPounds = [5, 10, 20, 50];
+  const handleQuickCash = (value) => {
+    setTendered((prev) => prev + value);
+  };
+
+  const processPayment = (method) => {
+    setPaymentMethod(method);
+
+    if (method === 'Cash' && tenderedInPounds < amountInPounds) {
+      if (window.confirm(`Amount tendered is less than balance due. Proceed with payment?`)) {
+        onComplete({
+          method,
+          amountTendered: tenderedInPounds,
+          changeDue: 0,
+        });
+      }
+      return;
+    }
+
+    if (method !== 'Cash' || tenderedInPounds >= amountInPounds) {
+      onComplete({
+        method,
+        amountTendered: method === 'Cash' ? tenderedInPounds : amountInPounds,
+        changeDue: method === 'Cash' ? changeDueInPounds : 0,
+      });
+    }
   };
 
   return (
-    <div className="payment-container">
-      <div className="header">
-        <span>Pay</span>
-        <span className="balance-due">${balanceDue.toFixed(2)}</span>
-      </div>
-
-      <div className="amount-section">
-        <div className="amount-tendered">
-          <span>Amount Tendered</span>
-          <span>${amountTendered.toFixed(2)}</span>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex justify-between items-center p-3 border-b">
+          <h2 className="text-lg font-bold">Pay £{amountInPounds.toFixed(2)}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-xl">
+            ✕
+          </button>
         </div>
-        <div className="change-due">
-          <span>Change Due</span>
-          <span>${changeDue.toFixed(2)}</span>
+
+        {/* Amounts Display */}
+        <div className="grid grid-cols-3 text-center p-3">
+          <div>
+            <div className="text-gray-500 text-xs">Tendered</div>
+            <div className="text-lg font-semibold">£{tenderedInPounds.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 text-xs">Balance</div>
+            <div className="text-lg font-semibold text-red-500">£{balanceDueInPounds.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 text-xs">Change</div>
+            <div className="text-lg font-semibold">£{changeDueInPounds.toFixed(2)}</div>
+          </div>
+        </div>
+
+        {/* Main Section */}
+        <div className="flex">
+          {/* Left: Number Pad */}
+          <div className="w-2/3 grid grid-cols-3 gap-1 p-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0, '00', 'C'].map((key) => (
+              <button
+                key={key}
+                onClick={() => handleNumberInput(key.toString())}
+                className={`p-2 rounded-md text-xl font-bold ${
+                  key === 'C' ? 'bg-red-500 text-white' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                {key}
+              </button>
+            ))}
+            <button
+              onClick={handleClear}
+              className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-sm font-semibold col-span-3"
+            >
+              &#x2715;
+            </button>
+          </div>
+
+          {/* Right: Quick Cash + Payment Methods */}
+          <div className="w-1/3 p-2 space-y-1">
+            {quickCashValuesInPounds.map((value) => (
+              <button
+                key={value}
+                onClick={() => handleQuickCash(value)}
+                className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-semibold"
+              >
+                £{value}
+              </button>
+            ))}
+
+            <button
+              onClick={() => processPayment('Cash')}
+              className="w-full p-2 bg-green-500 hover:bg-green-600 rounded-md text-white text-sm font-bold"
+            >
+              <span className="mr-1">£</span> Cash
+            </button>
+            <button
+              onClick={() => processPayment('Credit Card')}
+              className="w-full p-2 bg-red-500 hover:bg-red-600 rounded-md text-white text-sm font-bold flex items-center justify-center"
+            >
+              <span className="mr-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
+                </svg>
+              </span>
+              Credit Card
+            </button>
+            <button
+              onClick={() => processPayment('Invoice')}
+              className="w-full p-2 bg-red-500 hover:bg-red-600 rounded-md text-white text-sm font-bold flex items-center justify-center"
+            >
+              <span className="mr-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7m14-8v10a3 3 0 01-3 3H6a3 3 0 01-3-3V8m16 0h-2"
+                  />
+                </svg>
+              </span>
+              Invoice
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom: Manual Card and Card on File */}
+        <div className="flex border-t">
+          <button className="flex-1 p-2 border-r text-center text-sm font-bold flex items-center justify-center">
+            <span className="mr-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                />
+              </svg>
+            </span>
+            Manual Card
+          </button>
+          <button className="flex-1 p-2 text-center text-sm font-bold flex items-center justify-center">
+            <span className="mr-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7m-8 14H5a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v1m-8 14l2-2 2-2 2-2"
+                />
+              </svg>
+            </span>
+            Card File
+          </button>
         </div>
       </div>
-
-      <div className="input-grid">
-        <button onClick={() => handleNumberClick(1)}>1</button>
-        <button onClick={() => handleNumberClick(2)}>2</button>
-        <button onClick={() => handleNumberClick(3)}>3</button>
-        <button className="fraction">1/2</button>
-        <button className="quick-cash" onClick={() => handleQuickCash(5)}>$5</button>
-        <button className="quick-cash" onClick={() => handleQuickCash(10)}>$10</button>
-        <button onClick={() => handleNumberClick(4)}>4</button>
-        <button onClick={() => handleNumberClick(5)}>5</button>
-        <button onClick={() => handleNumberClick(6)}>6</button>
-        <button className="fraction">1/3</button>
-        <button className="quick-cash" onClick={() => handleQuickCash(20)}>$20</button>
-        <button className="quick-cash" onClick={() => handleQuickCash(50)}>$50</button>
-        <button onClick={() => handleNumberClick(7)}>7</button>
-        <button onClick={() => handleNumberClick(8)}>8</button>
-        <button onClick={() => handleNumberClick(9)}>9</button>
-        <button className="more">More</button>
-        <button className="payment-method cash">
-          <span role="img" aria-label="cash">💲</span> Cash
-        </button>
-        <button className="payment-method credit-card">
-          <span role="img" aria-label="credit-card">💳</span> Credit Card
-        </button>
-        <button onClick={() => handleNumberClick(0)}>0</button>
-        <button onClick={() => handleNumberClick('00')}>00</button>
-        <button onClick={handleClearClick}>C</button>
-        <button className="backspace">
-          <span role="img" aria-label="backspace">
-            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8.7 7.7a1 1 0 0 0-1.4 1.4l3.3 3.3-3.3 3.3a1 1 0 0 0 1.4 1.4l3.3-3.3 3.3 3.3a1 1 0 0 0 1.4-1.4l-3.3-3.3 3.3-3.3a1 1 0 0 0-1.4-1.4l-3.3 3.3-3.3-3.3z"/></svg>
-          </span>
-        </button>
-        <button className="payment-method invoice">
-          <span role="img" aria-label="invoice">🧾</span> Invoice
-        </button>
-      </div>
-
-      {/* You would add more UI elements here for manual credit card entry, card on file, etc. */}
     </div>
   );
 };

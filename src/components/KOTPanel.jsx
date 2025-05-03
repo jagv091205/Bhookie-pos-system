@@ -16,7 +16,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
+export default function KOTPanel({ kotItems, setKotItems }) {
   const [subTotal, setSubTotal] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [total, setTotal] = useState(0);
@@ -43,6 +43,9 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
   const [orderId, setOrderId] = useState("");
   const location = useLocation();
   const userId = "1234"; // Replace with logged-in user ID
+  // const [autoProcessEmployee, setAutoProcessEmployee] = useState(null);
+
+  // Add this useEffect hook
 
   useEffect(() => {
     if (isPaymentProcessed) {
@@ -54,11 +57,13 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
     if (location.state?.selectedEmployee) {
       const employee = location.state.selectedEmployee;
       handleAutoProcessEmployee(employee);
+      // Clear the navigation state after processing
       window.history.replaceState({}, document.title);
     }
   }, [location]);
 
   useEffect(() => {
+    // Only show loyalty modal for non-employee orders
     if (!isEmployee && !customerId) {
       setIsCustomerModalOpen(false);
     }
@@ -68,53 +73,22 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
     updateTotals();
   }, [kotItems]);
 
-  // Add this function to handle inventory updates
-  const updateInventory = async (kotItems) => {
-    try {
-      // Process each item in the KOT
-      for (const item of kotItems) {
-        const itemRef = doc(db, "inventory", item.id);
-        const itemSnap = await getDoc(itemRef);
-
-        if (itemSnap.exists()) {
-          const inventoryData = itemSnap.data();
-          const { unitsPerInner, innerPerBox, totalStockOnHand } = inventoryData;
-
-          // Calculate total units sold
-          const totalUnitsSold = item.quantity * unitsPerInner;
-
-          // Calculate new stock values
-          const newTotalStock = totalStockOnHand - totalUnitsSold;
-
-          // Update inventory
-          await updateDoc(itemRef, {
-            totalStockOnHand: newTotalStock,
-            lastUpdated: Timestamp.now()
-          });
-
-          console.log(`Updated inventory for ${item.name}: Deducted ${totalUnitsSold} units`);
-        } else {
-          console.warn(`Inventory item ${item.id} not found`);
-        }
-      }
-    } catch (error) {
-      console.error("Error updating inventory:", error);
-      throw error;
-    }
-  };
-
   const handleAutoProcessEmployee = async (employee) => {
     if (!employee.isClockedIn) {
       alert("Employee must be clocked in to use meal credits!");
       return;
     }
 
+    // Set employee details and skip customer modal
     setCustomerId(employee.EmployeeID);
     setCustomerName(employee.name);
     setCustomerPhone(employee.phone);
     setEmployeeMealCredits(employee.mealCredits);
     setIsEmployee(true);
-    setIsCustomerModalOpen(false);
+    setIsCustomerModalOpen(false); // Explicitly close customer modal
+
+    // Open payment modal directly
+    // setIsPaymentModalOpen(true);s
   };
 
   const updateTotals = (items = kotItems) => {
@@ -156,21 +130,25 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
     updateTotals(updated);
   };
 
+  // Update the clearItems function to reset employee-related states
   const clearItems = () => {
     setKotItems([]);
     updateTotals([]);
     setKotId("");
     setIsPaymentProcessed(false);
     setPaymentMethod("");
+    // Reset customer/employee states
     setCustomerId("");
     setCustomerPhone("");
     setCustomerName("");
+    // Reset employee-specific states
     setEmployeeMealCredits(0);
     setCreditsUsed(0);
     setCashDue(0);
     setIsEmployee(false);
   };
 
+  // Modify handlePayClick
   const handlePayClick = () => {
     if (kotItems.length === 0) {
       alert("Please add items before payment");
@@ -254,16 +232,20 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
       const customersRef = collection(db, "customers");
       const empRef = collection(db, "Employees");
 
+      // Run all queries in parallel
       const [customerPhoneSnap, customerIdSnap, empPhoneSnap, empIdSnap] =
         await Promise.all([
           getDocs(query(customersRef, where("phone", "==", customerSearch))),
-          getDocs(query(customersRef, where("customerID", "==", customerSearch))),
+          getDocs(
+            query(customersRef, where("customerID", "==", customerSearch))
+          ),
           getDocs(query(empRef, where("phone", "==", customerSearch))),
           getDocs(query(empRef, where("EmployeeID", "==", customerSearch))),
         ]);
 
       const results = [];
 
+      // Process customer results
       customerPhoneSnap.forEach((doc) =>
         results.push({ ...doc.data(), isEmployee: false })
       );
@@ -271,11 +253,12 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         results.push({ ...doc.data(), isEmployee: false })
       );
 
+      // Process employee results
       empPhoneSnap.forEach((doc) =>
         results.push({
           ...doc.data(),
           isEmployee: true,
-          EmployeeID: doc.id,
+          EmployeeID: doc.id, // Assuming EmployeeID is the document ID
         })
       );
       empIdSnap.forEach((doc) =>
@@ -286,6 +269,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         })
       );
 
+      // Remove duplicates and check clock-in status
       const uniqueResults = Array.from(
         new Set(results.map((r) => r.phone || r.EmployeeID))
       ).map((id) => results.find((r) => (r.phone || r.EmployeeID) === id));
@@ -317,6 +301,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         return;
       }
 
+      // Fetch employee's meal credits
       try {
         const mealRef = doc(db, "Employees", customer.EmployeeID, "meal", "1");
         const mealSnap = await getDoc(mealRef);
@@ -335,6 +320,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
       setIsEmployee(false);
     }
 
+    // Rest of the existing code...
     setCustomerId(customer.customerID || customer.EmployeeID);
     setCustomerPhone(customer.phone);
     setCustomerName(customer.name);
@@ -390,166 +376,164 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
       return;
     }
 
-    try {
-      // First update inventory
-      await updateInventory(kotItems);
+    const newKOTId = await generateKOTId();
+    setKotId(newKOTId);
 
-      const newKOTId = await generateKOTId();
-      setKotId(newKOTId);
+    const earnedPoints = Math.floor(total * 0.1); // 10% of total as points
 
-      const earnedPoints = Math.floor(total * 0.1);
+    const data = {
+      kot_id: newKOTId,
+      date: Timestamp.now(),
+      amount: total,
+      customerID: customerId || null,
+      earnedPoints: isEmployee ? 0 : customerId ? earnedPoints : 0,
+      creditsUsed: isEmployee ? creditsUsed : 0,
+      cashPaid: isEmployee ? cashDue : total,
+      items: kotItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    };
 
-      const data = {
-        kot_id: newKOTId,
-        date: Timestamp.now(),
-        amount: total,
-        customerID: customerId || null,
-        earnedPoints: isEmployee ? 0 : customerId ? earnedPoints : 0,
-        creditsUsed: isEmployee ? creditsUsed : 0,
-        cashPaid: isEmployee ? cashDue : total,
-        items: kotItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-      };
+    // Save KOT document
+    await setDoc(doc(db, "KOT", newKOTId), data);
 
-      await setDoc(doc(db, "KOT", newKOTId), data);
+    // Update customer points if they're in the loyalty program
+    if (customerId) {
+      try {
+        // Update customer document
+        const customerDoc = customerPhone
+          ? doc(db, "customers", customerPhone)
+          : doc(db, "customers", customerId);
 
-      if (customerId) {
-        try {
-          const customerDoc = customerPhone
-            ? doc(db, "customers", customerPhone)
-            : doc(db, "customers", customerId);
+        await setDoc(
+          customerDoc,
+          {
+            points: customerPoints + earnedPoints,
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true }
+        );
 
-          await setDoc(
-            customerDoc,
-            {
-              points: customerPoints + earnedPoints,
-              updatedAt: Timestamp.now(),
-            },
-            { merge: true }
-          );
-
-          await addDoc(collection(db, "loyaltyHistory"), {
-            customerID: customerId,
-            type: "earn",
-            points: earnedPoints,
-            orderID: newKOTId,
-            date: Timestamp.now(),
-          });
-        } catch (error) {
-          console.error("Error updating customer points:", error);
-        }
+        // Add to loyalty history
+        await addDoc(collection(db, "loyaltyHistory"), {
+          customerID: customerId,
+          type: "earn",
+          points: earnedPoints,
+          orderID: newKOTId,
+          date: Timestamp.now(),
+        });
+      } catch (error) {
+        console.error("Error updating customer points:", error);
       }
-
-      const printContent = `
-        <div style="font-family: Arial, sans-serif; border: 1px solid #000; padding: 10px; width: 200px;">
-          <h3 style="text-align: center;">KOT</h3>
-          <p><strong>KOT ID:</strong> ${newKOTId}</p>
-          ${
-            customerId
-              ? `<p><strong>${
-                  isEmployee ? "Employee" : "Customer"
-                }:</strong> ${customerName} (${customerId})</p>`
-              : ""
-          }
-          ${
-            isEmployee
-              ? `<p><strong>Meal Credits Used:</strong> £${creditsUsed}</p>
-                 ${
-                   cashDue > 0
-                     ? `<p><strong>Cash Paid:</strong> £${cashDue}</p>`
-                     : ""
-                 }`
-              : ""
-          }
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr>
-                <th style="border: 1px solid #000; padding: 5px;">Item</th>
-                <th style="border: 1px solid #000; padding: 5px;">Qty</th>
-                <th style="border: 1px solid #000; padding: 5px;">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${kotItems
-                .map(
-                  (item) => `
-                  <tr>
-                    <td style="border: 1px solid #000; padding: 5px;">
-                      ${item.name}
-                      ${
-                        item.sauces?.length > 0
-                          ? `<div style="font-size: 10px; color: #555;">${item.sauces.join(
-                              ", "
-                            )}</div>`
-                          : ""
-                      }
-                    </td>
-                    <td style="border: 1px solid #000; padding: 5px;">${
-                      item.quantity
-                    }</td>
-                    <td style="border: 1px solid #000; padding: 5px;">£${
-                      item.quantity * item.price
-                    }</td>
-                  </tr>`
-                )
-                .join("")}
-            </tbody>
-          </table>
-          <p><strong>Sub Total:</strong> £${subTotal}</p>
-          <p><strong>Discount:</strong> £${creditsUsed}</p>
-          <p><strong>Total:</strong> £${total - creditsUsed}</p>
-          ${
-            customerPoints >= 2 && !isEmployee
-              ? `<p style="color: green;">10% discount applied (Points: ${customerPoints})</p>`
-              : ""
-          }
-          ${
-            customerId && !isEmployee
-              ? `<p><strong>Earned Points:</strong> ${earnedPoints}</p>`
-              : ""
-          }
-        </div>
-      `;
-
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-      }
-
-      clearItems();
-    } catch (error) {
-      console.error("Error in KOT generation:", error);
-      alert("Failed to complete order. Please try again.");
     }
+
+    // Print KOT
+    const printContent = `
+    <div style="font-family: Arial, sans-serif; border: 1px solid #000; padding: 10px; width: 200px;">
+      <h3 style="text-align: center;">KOT</h3>
+      <p><strong>KOT ID:</strong> ${newKOTId}</p>
+      ${
+        customerId
+          ? `<p><strong>${
+              isEmployee ? "Employee" : "Customer"
+            }:</strong> ${customerName} (${customerId})</p>`
+          : ""
+      }
+      ${
+        isEmployee
+          ? `<p><strong>Meal Credits Used:</strong> £${creditsUsed}</p>
+             ${
+               cashDue > 0
+                 ? `<p><strong>Cash Paid:</strong> £${cashDue}</p>`
+                 : ""
+             }`
+          : ""
+      }
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="border: 1px solid #000; padding: 4px;">Item</th>
+            <th style="border: 1px solid #000; padding: 4px;">Qty</th>
+            <th style="border: 1px solid #000; padding: 4px;">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${kotItems
+            .map(
+              (item) => `
+              <tr>
+                <td style="border: 1px solid #000; padding: 5px;">
+                  ${item.name}
+                  ${
+                    item.sauces?.length > 0
+                      ? `<div style="font-size: 10px; color: #555;">${item.sauces.join(
+                          ", "
+                        )}</div>`
+                      : ""
+                  }
+                </td>
+                <td style="border: 1px solid #000; padding: 5px;">${
+                  item.quantity
+                }</td>
+                <td style="border: 1px solid #000; padding: 5px;">£${
+                  item.quantity * item.price
+                }</td>
+              </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+      <p><strong>Sub Total:</strong> £${subTotal}</p>
+      <p><strong>Discount:</strong> £${creditsUsed}</p>
+      <p><strong>Total:</strong> £${total - creditsUsed}</p>
+      ${
+        customerPoints >= 2 && !isEmployee
+          ? `<p style="color: green;">10% discount applied (Points: ${customerPoints})</p>`
+          : ""
+      }
+      ${
+        customerId && !isEmployee
+          ? `<p><strong>Earned Points:</strong> ${earnedPoints}</p>`
+          : ""
+      }
+    </div>
+  `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+      printWindow.close();
+    }
+
+    clearItems();
   };
 
   const handleProcessPayment = async () => {
+    // For employees, payment method is not required
     if (!paymentMethod && !isEmployee) {
       alert("Please select a payment method.");
       return;
     }
-  
+
     if (isEmployee) {
       const creditsToUse = Math.min(employeeMealCredits, total);
       const remainingCash = Math.max(total - creditsToUse, 0);
-  
+
       try {
         const mealRef = doc(db, "Employees", customerId, "meal", "1");
         await updateDoc(mealRef, {
           mealCredits: employeeMealCredits - creditsToUse,
         });
-  
+
         setCreditsUsed(creditsToUse);
         setCashDue(remainingCash);
-  
+
         if (remainingCash > 0) {
           alert(`Employee must pay £${remainingCash.toFixed(2)} in cash`);
         }
@@ -559,50 +543,11 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         return;
       }
     }
-  
-    if (paymentMethod === "cash" && !isEmployee) {
-      try {
-        const q = query(collection(db, "cashSessions"), where("isClosed", "==", false));
-        const snapshot = await getDocs(q);
-  
-        if (!snapshot.empty) {
-          const sessionDoc = snapshot.docs[0];
-          const sessionRef = doc(db, "cashSessions", sessionDoc.id);
-          const sessionData = sessionDoc.data();
-  
-          if (sessionData.isPaused) {
-            alert("Cash session is paused. Please ask the manager to reopen the cashier.");
-            return;
-          }
-  
-          const totalAmount = subTotal - discount;
-          const orderNote = kotId ? `Sale KOT #${kotId}` : "Sale";
-  
-          const newTransaction = {
-            type: "in",
-            amount: totalAmount,
-            by: "John",
-            time: Timestamp.now(),
-            note: orderNote,
-          };
-  
-          const updatedTransactions = [...(sessionData.transactions || []), newTransaction];
-          await updateDoc(sessionRef, { transactions: updatedTransactions });
-          console.log("Cash transaction recorded.");
-        } else {
-          console.warn("No active cash session found.");
-          alert("No active cash session found. Start session before accepting cash.");
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to log cash transaction:", error);
-      }
-    }
-  
+
     setIsPaymentProcessed(true);
     setIsPaymentModalOpen(false);
   };
-  
+
   return (
     <div className="p-4 w-full max-w-md mx-auto">
       <h2 className="text-2xl font-bold mb-4">ORDER</h2>
@@ -633,8 +578,8 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         </div>
       )}
 
-      <div className="border p-4 rounded mb-4 bg-white">
-        <table className="w-full text-left mb-4">
+      <div className="border p-3 rounded mb-3 bg-white">
+        <table className="w-full text-left mb-3">
           <thead>
             <tr>
               <th>ITEM</th>
@@ -710,14 +655,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <button
-          onClick={handlePayClick}
-          className="bg-blue-600 text-white p-2 rounded"
-        >
-          PAY
-        </button>
-
+      <div className="grid grid-cols-2 gap-1 mb-3">
         <button
           onClick={() => setShowCancelConfirm(true)}
           className="bg-red-600 text-white p-2 rounded"
@@ -726,25 +664,19 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         </button>
 
         <button
-          onClick={handleGenerateKOT}
-          disabled={!isPaymentProcessed}
-          className={`text-white p-2 rounded ${
-            isPaymentProcessed
-              ? "bg-green-800"
-              : "bg-gray-500 cursor-not-allowed"
-          }`}
+          onClick={handlePayClick}
+          className="bg-blue-600 text-white p-2 rounded"
         >
-          SAVE KOT
+          PAY
         </button>
-
         <button
-          onClick={() => setShowCashTab(true)}
-          className="bg-blue-600 px-4 py-2 rounded text-white hover:bg-blue-700"
+          className="bg-blue-600 text-white p-2 rounded"
         >
-          CASH SESSION
+          STORE
         </button>
       </div>
 
+      {/* Number Pad Modal */}
       {showNumberPad && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-[300px] relative">
@@ -811,7 +743,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
           </div>
         </div>
       )}
-
+      {/*cancel order confirmation modal */}
       {showCancelConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow-lg text-center space-y-4">
@@ -839,6 +771,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         </div>
       )}
 
+      {/* Customer Modal */}
       {isCustomerModalOpen && !isEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
@@ -923,6 +856,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
         </div>
       )}
 
+      {/* Payment Modal */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
@@ -972,7 +906,7 @@ export default function KOTPanel({ kotItems, setKotItems, setShowCashTab }) {
                 </div>
                 <button
                   onClick={handleProcessPayment}
-                  className="bg-blue-600 text-white px-6 py-2 rounded"
+                  className="bg-blue-600 text-white px-5 py-2 rounded"
                 >
                   Process
                 </button>

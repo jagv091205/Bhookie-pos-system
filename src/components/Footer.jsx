@@ -20,40 +20,39 @@ export default function Footer() {
   }
 
   return (
-    <div className="w-full px-4 py-2">
-      <div className="flex flex-wrap justify-start gap-2">
+      <div className="flex flex-wrap justify-start gap-1">
         <button
           onClick={handleRefresh}
-          className="bg-blue-600 text-white font-bold py-3 px-4 rounded shadow text-sm w-[120px]"
+          className="bg-blue-600 text-white font-bold py-2 px-2 rounded shadow text-sm w-[120px]"
         >
           REFRESH<br />SCREEN
         </button>
 
         <button
-          className="bg-blue-600 text-white font-bold py-3 px-4 rounded shadow text-sm w-[120px]"
+          className="bg-blue-600 text-white font-bold py-2 px-2 rounded shadow text-sm w-[120px]"
         >
           RECALL<br />ORDER
         </button>
 
         <button
           onClick={handleManagerClick}
-          className="bg-red-600 text-white font-bold py-3 px-4 rounded shadow text-sm w-[120px]"
+          className="bg-red-600 text-white font-bold py-2 px-2 rounded shadow text-sm w-[140px]"
         >
           MANAGER<br />SCREEN
         </button>
  
         <button onClick={handleHelpClick}
-          className="bg-gray-800 text-white font-bold py-3 px-4 rounded shadow text-sm w-[100px]"
+          className="bg-gray-600 text-white font-bold py-2 px-2 rounded shadow text-sm w-[90px]"
         >
           HELP
         </button>
 
         <button onClick={handleReportClick}
-          className="bg-blue-600 text-white font-bold py-3 px-4 rounded shadow text-sm w-[100px]"
+          className="bg-blue-600 text-white font-bold py-2 px-2 rounded shadow text-sm w-[120px]"
         >
           REPORT
         </button>
       </div>
-    </div>
+    
   );
 }
