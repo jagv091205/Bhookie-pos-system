@@ -759,15 +759,16 @@ export default function ManagerScreen() {
 
   return (
     <div className="flex min-h-screen">
-      <button
-        onClick={() => {
-          logout();
-          navigate("/");
-        }}
-        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold"
-      >
-        &times;
-      </button>
+     <button
+  onClick={() => {
+    logout();
+    navigate("/");
+  }}
+  className="absolute bottom-4 left-4 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
+>
+    Back
+</button>
+
       <aside className="w-64 bg-gray-800 text-white p-6 space-y-4">
         <h2 className="text-2xl font-bold mb-6">Manager Panel</h2>
         <nav className="space-y-2">
