@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
 
 const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
   const [tendered, setTendered] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('');
-
-  const exchangeRate = 0.80; // Example exchange rate (GBP to USD), adjust as needed
+  const exchangeRate = 0.80; 
   const amountInPounds = amount * exchangeRate;
   const tenderedInPounds = tendered * exchangeRate;
   const balanceDueInPounds = amountInPounds - tenderedInPounds;
@@ -144,14 +144,14 @@ const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
             </button>
             <button
               onClick={() => processPayment('Invoice')}
-              className="w-full p-2 bg-red-500 hover:bg-red-600 rounded-md text-white text-sm font-bold flex items-center justify-center"
+              className="w-full p-2 bg-red-00 hover:bg-red-00 rounded-md text-white text-sm font-bold flex items-center justify-center"
             >
               <span className="mr-1">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
+                  className="h-0 w-0"
                   fill="none"
-                  viewBox="0 0 24 24"
+                  viewBox="0 0 20 20"
                   stroke="currentColor"
                 >
                   <path
@@ -162,7 +162,7 @@ const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
                   />
                 </svg>
               </span>
-              Invoice
+          
             </button>
           </div>
         </div>

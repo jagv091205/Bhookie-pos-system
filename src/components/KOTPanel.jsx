@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
 import { where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
+import PaymentScreen from "./PaymentScreen";
 import {
   collection,
   getDocs,
@@ -26,6 +27,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   const [kotId, setKotId] = useState("");
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [showPaymentScreen, setShowPaymentScreen] = useState(false);
   const [isPaymentProcessed, setIsPaymentProcessed] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
@@ -79,6 +81,21 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       return;
     }
 
+    const handlePaymentSelection = () => {
+      if (paymentMethod) {
+        console.log("Payment method selected:", paymentMethod);
+        setIsPaymentModalOpen(false); // Close the modal
+      } else {
+        alert("Please select a payment method.");
+      }
+    };
+
+    const onBack = () => {
+      // Add your logic here (navigate back, close modal, or other)
+      console.log("Back to KOT clicked");
+      setIsPaymentModalOpen(false); // Or handle KOT screen logic
+    };
+    
     // Set employee details and skip customer modal
     setCustomerId(employee.EmployeeID);
     setCustomerName(employee.name);
@@ -154,12 +171,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       alert("Please add items before payment");
       return;
     }
-
-    if (isEmployee) {
-      setIsPaymentModalOpen(true);
-    } else {
-      setIsCustomerModalOpen(true);
-    }
+    setIsCustomerModalOpen(true);
   };
 
   const generateKOTId = async () => {
@@ -514,49 +526,24 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     clearItems();
   };
 
-  const handleProcessPayment = async () => {
-    // For employees, payment method is not required
-    if (!paymentMethod && !isEmployee) {
+  const handleProcessPayment = () => {
+    if (!paymentMethod)  {
+      setIsPaymentProcessed(true);
+      setIsPaymentModalOpen(false);
+    }else {
       alert("Please select a payment method.");
-      return;
     }
-
-    if (isEmployee) {
-      const creditsToUse = Math.min(employeeMealCredits, total);
-      const remainingCash = Math.max(total - creditsToUse, 0);
-
-      try {
-        const mealRef = doc(db, "Employees", customerId, "meal", "1");
-        await updateDoc(mealRef, {
-          mealCredits: employeeMealCredits - creditsToUse,
-        });
-
-        setCreditsUsed(creditsToUse);
-        setCashDue(remainingCash);
-
-        if (remainingCash > 0) {
-          alert(`Employee must pay £${remainingCash.toFixed(2)} in cash`);
-        }
-      } catch (error) {
-        console.error("Error updating meal credits:", error);
-        alert("Error processing meal credits");
-        return;
-      }
-    }
-
-    setIsPaymentProcessed(true);
-    setIsPaymentModalOpen(false);
   };
+    return (
+<div className="p-4 w-full max-w-sm mx-auto">
+<h2 className="text-2xl font-bold mb-4">ORDER</h2>
 
-  return ( <div className="p-4 w-full max-w-md mx-auto"> <h2 className="text-2xl font-bold mb-4">ORDER</h2>
-
-   
       {kotId && (
         <div className="mb-4 text-base font-semibold text-indigo-700 border border-indigo-300 rounded p-2 bg-indigo-50">
           KOT ID: <span className="font-mono">{kotId}</span>
         </div>
       )}
-    
+
       {customerId && (
         <div className="mb-4 text-base font-semibold text-green-700 border border-green-300 rounded p-2 bg-green-50">
           {isEmployee ? (
@@ -576,7 +563,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           )}
         </div>
       )}
-    
+
       <div className="border p-3 rounded mb-3 bg-white">
         <table className="w-full text-left mb-3">
           <thead>
@@ -646,14 +633,14 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             ))}
           </tbody>
         </table>
-    
+
         <div>
           <p>Sub Total: £{subTotal}</p>
           <p>Discount: £{discount}</p>
           <p className="font-bold text-lg">Total: £{total}</p>
         </div>
       </div>
-    
+
       <div className="grid grid-cols-2 gap-1 mb-3">
         <button
           onClick={() => setShowCancelConfirm(true)}
@@ -661,7 +648,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         >
           CANCEL
         </button>
-    
+
         <button
           onClick={handlePayClick}
           className="bg-blue-600 text-white p-2 rounded"
@@ -674,7 +661,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           STORE
         </button>
       </div>
-    
+
       {/* Number Pad Modal */}
       {showNumberPad && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -685,11 +672,11 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             >
               ✕
             </button>
-    
+
             <div className="text-xl font-semibold mb-2 text-center">
               Enter Quantity
             </div>
-    
+
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 onClick={() =>
@@ -715,7 +702,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 +
               </button>
             </div>
-    
+
             <div className="grid grid-cols-3 gap-2 mb-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
                 <button
@@ -769,7 +756,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           </div>
         </div>
       )}
-    
+
       {/* Customer Modal */}
       {isCustomerModalOpen && !isEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -781,11 +768,9 @@ export default function KOTPanel({ kotItems, setKotItems }) {
               ✕
             </button>
             <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
-    
+
             <div className="mb-4">
-              <p className="mb-2">
-                Enter Customer ID or Phone Number (Optional):
-              </p>
+              <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -802,14 +787,14 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 </button>
               </div>
             </div>
-    
+
             {foundCustomers.map((customer) => {
               const isEmployee = customer.isEmployee;
               const identifier = isEmployee
                 ? customer.EmployeeID
                 : customer.customerID;
               const type = isEmployee ? "Employee" : "Customer";
-    
+
               return (
                 <div
                   key={identifier}
@@ -833,7 +818,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 </div>
               );
             })}
-    
+
             <div className="flex gap-2 justify-center mt-4">
               <button
                 onClick={() => {
@@ -854,67 +839,61 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           </div>
         </div>
       )}
-    
+
       {/* Payment Modal */}
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
-            <button
-              onClick={() => setIsPaymentModalOpen(false)}
-              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
-            >
-              ✕
-            </button>
-            <h3 className="text-xl font-bold mb-4">
-              {isEmployee ? "Employee Payment" : "Select Payment Method"}
-            </h3>
-            {isEmployee ? (
-              <div>
-                <p className="mb-4">Meal Credits: £{employeeMealCredits}</p>
-                <p className="mb-4">Total: £{total}</p>
-                <button
-                  onClick={handleProcessPayment}
-                  className="bg-blue-600 text-white px-6 py-2 rounded"
-                >
-                  Process with Meal Credits
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-center gap-4 mb-4">
-                  <button
-                    className={`px-4 py-2 rounded ${
-                      paymentMethod === "cash"
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-200"
-                    }`}
-                    onClick={() => setPaymentMethod("cash")}
-                  >
-                    Cash
-                  </button>
-                  <button
-                    className={`px-4 py-2 rounded ${
-                      paymentMethod === "card"
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-200"
-                    }`}
-                    onClick={() => setPaymentMethod("card")}
-                  >
-                    Card
-                  </button>
-                </div>
-                <button
-                  onClick={handleProcessPayment}
-                  className="bg-blue-600 text-white px-5 py-2 rounded"
-                >
-                  Process
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-    );
-    }
+{isPaymentModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
+      <button
+        onClick={() => setIsPaymentModalOpen(false)}
+        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+      >
+        ✕
+      </button>
+      <h3 className="text-xl font-bold mb-4">Select Payment Method</h3>
+      <div className="flex justify-center gap-4 mb-4">
+        <button
+          className={`px-4 py-2 rounded ${
+            paymentMethod === "cash" ? "bg-green-600 text-white" : "bg-gray-200"
+          }`}
+          onClick={() =>{ 
+            setPaymentMethod("cash");
+            setIsPaymentProcessed(true);
+            setIsPaymentModalOpen(false);
+          } }
+        >
+          Cash
+        </button>
+        <button
+          className={`px-4 py-2 rounded ${
+            paymentMethod === "card" ? "bg-green-600 text-white" : "bg-gray-200"
+          }`}
+          onClick={() =>{ 
+            setPaymentMethod("card");
+            setShowPaymentScreen(true);
+            setIsPaymentModalOpen(false);
+          }}
+        >
+          Card
+        </button>
+      </div>
     
+    </div>
+  </div>
+)}
+
+    {showPaymentScreen && (
+      <PaymentScreen 
+        amount={total}
+        onComplete={(success) => {
+          setShowPaymentScreen(false);
+          if (success) {
+            setIsPaymentProcessed(true);
+          }
+        }}
+        onClose={() => setShowPaymentScreen(false)}
+      />
+    )}
+    </div>
+  );
+}

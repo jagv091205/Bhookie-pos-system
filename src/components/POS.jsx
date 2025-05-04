@@ -69,7 +69,7 @@ export default function POS() {
             return [...prevItems, item];
           });
         }} />
-        <div className="w-[80%] overflow-y-auto">
+        <div className="w-[50%] overflow-y-auto">
         <KOTPanel kotItems={kotItems} setKotItems={setKotItems} setShowCashTab={handleOpenCashTab} />
         </div>
         </div>
