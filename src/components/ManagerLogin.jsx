@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AutoContext";
 import { db } from "../firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 const roleMap = {
   cash01: "cashier",
-  manage01: "manager"
+  manage01: "manager",
+  cashier: "cashier",
+  manager: "manager"
 };
 
 export default function ManagerLogin() {
@@ -15,15 +17,12 @@ export default function ManagerLogin() {
   const navigate = useNavigate();
   const { setUser, logout } = useAuth();
 
-  // useEffect for handling page close/navigation away
   useEffect(() => {
     const handleBeforeUnload = (event) => {
-      // Logout the user when the page is closed or navigated away from
       logout();
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
@@ -31,58 +30,54 @@ export default function ManagerLogin() {
 
   const handleLogin = async () => {
     const trimmedCode = code.trim();
-
-    if (!trimmedCode || trimmedCode.length !== 8) {
-      alert("Please enter a valid 8-digit code.");
+  
+    if (!trimmedCode) {
+      alert("Please enter an employee ID");
       return;
     }
-
+  
     setLoading(true);
-
+  
     try {
-      const userRef = doc(db, "users", trimmedCode);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const isActive =
-          userData["active/inactive"] === true || userData.active === true;
-
-        if (!isActive) {
-          alert("User is inactive.");
-        } else {
-          const roleRef = userData.roleId;
-          const roleId = roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
-
-          console.log("roleRef:", roleRef);
-          console.log("roleId:", roleId);
-          console.log("roleMap:", roleMap);
-
-          if (!roleId) {
-            alert("Role ID is missing from user data.");
-            return;
-          }
-
-          const role = roleMap[roleId];
-
-          if (role) {
-            setUser({ id: trimmedCode, ...userData, role });
-
-            if (role === "manager") {
-              navigate("/manager");
-            } else {
-              alert(`Logged in as ${role}`);
-            }
+      const usersRef = collection(db, "users_01");
+      const q = query(usersRef, where("employeeID", "==", trimmedCode));
+      const querySnapshot = await getDocs(q);
+  
+      console.log("Searching for employeeID:", JSON.stringify(trimmedCode)); // Enhanced debug
+  
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        console.log("Found user document:", JSON.stringify(userData, null, 2)); // Better logging
+  
+        // Case-insensitive role check
+        const roleCode = userData.role?.toLowerCase().trim(); // Convert to lowercase and trim
+        const role = roleMap[Object.keys(roleMap).find(
+          key => key.toLowerCase() === roleCode
+        )];
+  
+        if (role) {
+          setUser({ 
+            id: userDoc.id, 
+            employeeID: userData.employeeID,
+            ...userData, 
+            role 
+          });
+  
+          if (role === "manager") {
+            navigate("/manager");
           } else {
-            alert("User role not recognized.");
+            navigate("/"); // Default redirect for other roles
           }
+        } else {
+          alert(`Role "${userData.role}" not recognized`);
         }
       } else {
-        alert("Invalid login code.");
+        alert("No employee found with this ID. Please check the ID and try again.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      alert("Something went wrong during login.");
+      alert("Login failed. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -90,7 +85,7 @@ export default function ManagerLogin() {
 
   const handleExitClick = () => {
     logout();
-    navigate("/"); // Optionally navigate to the home page after logout
+    navigate("/");
   };
 
   return (
@@ -105,7 +100,7 @@ export default function ManagerLogin() {
         <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
         <input
           type="text"
-          placeholder="Enter 8-digit code"
+          placeholder="Enter 8-digit employee ID"
           value={code}
           onChange={(e) => setCode(e.target.value)}
           maxLength={8}

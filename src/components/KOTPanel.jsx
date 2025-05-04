@@ -114,7 +114,12 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       0
     );
     setSubTotal(subtotal);
-    const newDiscount = customerPoints >= 2 ? subtotal * 0.1 : 0;
+    
+    // Only apply discount if we have a customer AND they're not an employee
+    const newDiscount = (customerId && !isEmployee && customerPoints >= 2) 
+      ? subtotal * 0.1 
+      : 0;
+      
     setDiscount(newDiscount);
     setTotal(subtotal - newDiscount);
   };
@@ -154,15 +159,23 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setKotId("");
     setIsPaymentProcessed(false);
     setPaymentMethod("");
-    // Reset customer/employee states
+    
+    // Reset all customer-related states
     setCustomerId("");
     setCustomerPhone("");
     setCustomerName("");
+    setCustomerPoints(0);
+    setCustomerSearch("");
+    setFoundCustomers([]);
+    
     // Reset employee-specific states
     setEmployeeMealCredits(0);
     setCreditsUsed(0);
     setCashDue(0);
     setIsEmployee(false);
+    
+    // Reset discount
+    setDiscount(0);
   };
 
   // Modify handlePayClick
