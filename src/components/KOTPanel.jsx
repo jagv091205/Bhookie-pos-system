@@ -548,16 +548,15 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setIsPaymentModalOpen(false);
   };
 
-  return (
-    <div className="p-4 w-full max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-4">ORDER</h2>
+  return ( <div className="p-4 w-full max-w-md mx-auto"> <h2 className="text-2xl font-bold mb-4">ORDER</h2>
 
+   
       {kotId && (
         <div className="mb-4 text-base font-semibold text-indigo-700 border border-indigo-300 rounded p-2 bg-indigo-50">
           KOT ID: <span className="font-mono">{kotId}</span>
         </div>
       )}
-
+    
       {customerId && (
         <div className="mb-4 text-base font-semibold text-green-700 border border-green-300 rounded p-2 bg-green-50">
           {isEmployee ? (
@@ -577,7 +576,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           )}
         </div>
       )}
-
+    
       <div className="border p-3 rounded mb-3 bg-white">
         <table className="w-full text-left mb-3">
           <thead>
@@ -647,14 +646,14 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             ))}
           </tbody>
         </table>
-
+    
         <div>
           <p>Sub Total: £{subTotal}</p>
           <p>Discount: £{discount}</p>
           <p className="font-bold text-lg">Total: £{total}</p>
         </div>
       </div>
-
+    
       <div className="grid grid-cols-2 gap-1 mb-3">
         <button
           onClick={() => setShowCancelConfirm(true)}
@@ -662,7 +661,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         >
           CANCEL
         </button>
-
+    
         <button
           onClick={handlePayClick}
           className="bg-blue-600 text-white p-2 rounded"
@@ -675,7 +674,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           STORE
         </button>
       </div>
-
+    
       {/* Number Pad Modal */}
       {showNumberPad && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -686,11 +685,11 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             >
               ✕
             </button>
-
+    
             <div className="text-xl font-semibold mb-2 text-center">
               Enter Quantity
             </div>
-
+    
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 onClick={() =>
@@ -716,7 +715,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 +
               </button>
             </div>
-
+    
             <div className="grid grid-cols-3 gap-2 mb-4">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
                 <button
@@ -770,7 +769,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           </div>
         </div>
       )}
-
+    
       {/* Customer Modal */}
       {isCustomerModalOpen && !isEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -782,7 +781,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
               ✕
             </button>
             <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
-
+    
             <div className="mb-4">
               <p className="mb-2">
                 Enter Customer ID or Phone Number (Optional):
@@ -803,14 +802,14 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 </button>
               </div>
             </div>
-
+    
             {foundCustomers.map((customer) => {
               const isEmployee = customer.isEmployee;
               const identifier = isEmployee
                 ? customer.EmployeeID
                 : customer.customerID;
               const type = isEmployee ? "Employee" : "Customer";
-
+    
               return (
                 <div
                   key={identifier}
@@ -834,7 +833,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                 </div>
               );
             })}
-
+    
             <div className="flex gap-2 justify-center mt-4">
               <button
                 onClick={() => {
@@ -855,7 +854,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           </div>
         </div>
       )}
-
+    
       {/* Payment Modal */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -916,5 +915,6 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         </div>
       )}
     </div>
-  );
-}
+    );
+    }
+    

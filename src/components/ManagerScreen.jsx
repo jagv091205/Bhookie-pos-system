@@ -503,7 +503,7 @@ export default function ManagerScreen() {
       console.error("Error fetching orders:", err);
     }
   };
-
+{/*
   // Attendance Handlers
   const getTodayDate = () => new Date().toISOString().split("T")[0];
 
@@ -725,7 +725,7 @@ export default function ManagerScreen() {
     }
   };
   
-
+*/}
   useEffect(() => {
     if (activeTab === "Orders") fetchOrders();
     if (activeTab === "Staff Meal") {
@@ -755,14 +755,14 @@ export default function ManagerScreen() {
   return (
     <div className="flex min-h-screen">
       <button
-        onClick={() => {
-          logout();
-          navigate("/");
-        }}
-        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold"
-      >
-        &times;
-      </button>
+  onClick={() => {
+    logout();
+    navigate("/");
+  }}
+  className="absolute bottom-4 left-4 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
+>
+   Back
+</button>
       <aside className="w-64 bg-gray-800 text-white p-6 space-y-4">
         <h2 className="text-2xl font-bold mb-6">Manager Panel</h2>
         <nav className="space-y-2">
@@ -790,77 +790,22 @@ export default function ManagerScreen() {
           >
             Cash
           </button> */}
-          <button
+         {/*} <button
             className={`block w-full text-left px-4 py-2 rounded ${
               activeTab === "Attendance" ? "bg-gray-700" : "hover:bg-gray-700"
             }`}
             onClick={() => setActiveTab("Attendance")}
           >
             Attendance
+          </button> */}
+         <button
+           className={`block w-full text-left px-4 py-2 rounded ${
+            activeTab === "Cash Management" ? "bg-gray-700" : "hover:bg-gray-700"
+          }`} 
+          onClick={() => setActiveTab("Cash Management")}
+          >
+              Cashier Control Panel
           </button>
-          <div className="bg-gray-100 p-4 rounded-lg shadow-md mt-6">
-            <h2 className="text-lg font-bold mb-4 text-black">Cashier Control Panel</h2>
-
-            {/* Cashier Code Input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cashier Login Code
-              </label>
-              <input
-                type="text"
-                value={cashierCode}
-                onChange={(e) => setCashierCode(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md shadow-sm text-black bg-white" // <-- ADDED text-black bg-white
-                placeholder="Enter Cashier Login Code"
-              />
-            </div>
-
-            {/* Status Message */}
-            {cashierStatus && (
-              <div className="mb-4 text-sm text-gray-700">
-                <strong>Status:</strong> {cashierStatus}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-4">
-              {/* Sign In - Using the improved version */}
-              <button
-                onClick={handleSignInCashier}
-                disabled={!cashierCode || cashierLoading}
-                className={`bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 ${cashierLoading ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-              >
-                {cashierLoading ? 'Signing In...' : 'Sign In Cashier'}
-              </button>
-
-              {/* Open Cashier */}
-              <button
-                onClick={() => handleOpenCashier(cashierCode)}
-                className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
-                disabled={!cashierCode}
-              >
-                Open Cashier
-              </button>
-
-              {/* Close Cashier */}
-              <button
-                onClick={() => handleCloseCashier(cashierCode)}
-                className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
-                disabled={!cashierCode}
-              >
-                Close Cashier
-              </button>
-
-              {/* Sign Out */}
-              <button
-                onClick={handleSignOutCashier}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                disabled={!cashierCode}
-              >
-                Sign Out Cashier
-              </button>
-            </div>
-          </div>
 
         </nav>
       </aside>
@@ -1079,6 +1024,70 @@ export default function ManagerScreen() {
           </div>
         )}
 
+        {activeTab === "Cash Management" && (
+  <div>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Cashier Login Code
+      </label>
+      <input
+        type="text"
+        value={cashierCode}
+        onChange={(e) => setCashierCode(e.target.value)}
+        className="w-full px-3 py-2 border rounded-md shadow-sm text-black bg-white"
+        placeholder="Enter Cashier Login Code"
+      />
+    </div>
+
+    {/* Status Message */}
+    {cashierStatus && (
+      <div className="mb-4 text-sm text-gray-700">
+        <strong>Status:</strong> {cashierStatus}
+      </div>
+    )}
+
+    <div className="flex flex-wrap gap-4">
+      {/* Sign In */}
+      <button
+        onClick={handleSignInCashier}
+        disabled={!cashierCode || cashierLoading}
+        className={`bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900 ${
+          cashierLoading ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {cashierLoading ? 'Signing In...' : 'Sign In Cashier'}
+      </button>
+
+      {/* Open Cashier */}
+      <button
+        onClick={() => handleOpenCashier(cashierCode)}
+        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
+        disabled={!cashierCode}
+      >
+        Open Cashier
+      </button>
+
+      {/* Close Cashier */}
+      <button
+        onClick={() => handleCloseCashier(cashierCode)}
+        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
+        disabled={!cashierCode}
+      >
+        Close Cashier
+      </button>
+
+      {/* Sign Out */}
+      <button
+        onClick={handleSignOutCashier}
+        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+        disabled={!cashierCode}
+      >
+        Sign Out Cashier
+      </button>
+    </div>
+  </div>
+)}
+
         {activeTab === "Cash" && (
           <div className="p-4 bg-gray-50 rounded-lg">
             <h3 className="text-lg font-semibold">Cash Management</h3>
@@ -1087,7 +1096,7 @@ export default function ManagerScreen() {
             </p>
           </div>
         )}
-
+{/*
         {activeTab === "Attendance" && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-4">
@@ -1160,6 +1169,7 @@ export default function ManagerScreen() {
             )}
           </div>
         )}
+          */}
       </main>
     </div>
   );

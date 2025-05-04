@@ -91,11 +91,11 @@ export default function MenuGrid({ onAddItem = () => {} }) {
     setShowSaucePopup(false);
     setSelectedItem(null);
   };
-
+ 
   return (
-    <div className="flex w-full h-[calc(125vh-230px)]">
-      {/* Left: Categories */}
-      <div className="w-[150px] bg-purple-800 text-white p-1 flex flex-col gap-1 overflow-y-auto">
+    <div className="flex flex-row w-full h-[calc(100vh-120px)] overflow-hidden">
+      {/* Categories */}
+      <div className="w-[150px] bg-purple-800 text-white p-2 flex flex-col gap-1 overflow-y-auto">
         {categories.map((cat) => (
           <button
             key={cat.id}
@@ -110,13 +110,13 @@ export default function MenuGrid({ onAddItem = () => {} }) {
           </button>
         ))}
       </div>
-
-      {/* Right: Items */}
+  
+      {/* Items */}
       <div className="flex-1 p-4 bg-purple-200 overflow-y-auto">
         {error ? (
           <div className="text-red-500">{error}</div>
         ) : selectedCategoryId ? (
-          <div className="grid grid-cols-10 md:grid-cols-10 lg:grid-cols-3 gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2">
             {filteredItems.map((item) => (
               <button
                 key={item.id}
@@ -137,20 +137,20 @@ export default function MenuGrid({ onAddItem = () => {} }) {
             ))}
           </div>
         ) : (
-          <div className="text-gray-300 font-medium text-lg">
-            Select a category to view items
+          <div className="text-gray-800 font-medium text-lg">
+             Select a category to view items
           </div>
         )}
       </div>
-
+  
       {/* Sauce Popup */}
       {showSaucePopup && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-40">
-          <div className="bg-white rounded-lg p-5 shadow-lg max-w-lg w-full">
+          <div className="bg-white rounded-lg p-5 shadow-lg max-w-md w-full">
             <h2 className="text-xl font-bold mb-5 text-purple-900">
               Select Sauce for {selectedItem.itemName}
             </h2>
-
+  
             {sauceOptions.length > 0 ? (
               <div className="flex flex-wrap gap-3">
                 {sauceOptions.map((sauce, index) => (
@@ -166,14 +166,14 @@ export default function MenuGrid({ onAddItem = () => {} }) {
             ) : (
               <div className="text-gray-300 mb-3">No sauces available</div>
             )}
-
+  
             <button
               onClick={() => handleSelectSauce(null)}
               className="mt-4 px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-600"
             >
               No Sauce
             </button>
-
+  
             <button
               onClick={() => {
                 setShowSaucePopup(false);
@@ -188,4 +188,4 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       )}
     </div>
   );
-}
+}  
