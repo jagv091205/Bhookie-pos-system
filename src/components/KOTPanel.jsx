@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
 import { where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
+import { writeBatch } from "firebase/firestore";
 import PaymentScreen from "./PaymentScreen";
 import {
   collection,
@@ -400,12 +401,51 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       alert("Please process payment before saving KOT.");
       return;
     }
-
+  
+    // 1. First update inventory for each item
+    try {
+      const batch = writeBatch(db);
+      
+      for (const item of kotItems) {
+        // Get the item document reference from inventory collection
+        const itemRef = doc(db, "inventory", item.id);
+        
+        // Get current item data
+        const itemSnap = await getDoc(itemRef);
+        if (itemSnap.exists()) {
+          const currentData = itemSnap.data();
+          const newStock = currentData.totalStockOnHand - item.quantity;
+          
+          if (newStock < 0) {
+            alert(`Insufficient stock for ${item.name}! Current: ${currentData.totalStockOnHand}, Required: ${item.quantity}`);
+            return;
+          }
+          
+          // Update with new quantity
+          batch.update(itemRef, {
+            totalStockOnHand: newStock,
+            timestamp: Timestamp.now()
+          });
+        } else {
+          alert(`Item ${item.name} not found in inventory!`);
+          return;
+        }
+      }
+      
+      // Commit all inventory updates at once
+      await batch.commit();
+    } catch (error) {
+      console.error("Error updating inventory:", error);
+      alert("Error updating inventory quantities");
+      return;
+    }
+  
+    // 2. Generate KOT document
     const newKOTId = await generateKOTId();
     setKotId(newKOTId);
-
+  
     const earnedPoints = Math.floor(total * 0.1); // 10% of total as points
-
+  
     const data = {
       kot_id: newKOTId,
       date: Timestamp.now(),
@@ -420,19 +460,25 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         quantity: item.quantity,
         price: item.price,
       })),
+      inventoryUpdated: true // Flag to indicate inventory was processed
     };
-
-    // Save KOT document
-    await setDoc(doc(db, "KOT", newKOTId), data);
-
-    // Update customer points if they're in the loyalty program
-    if (customerId) {
+  
+    // 3. Save KOT document
+    try {
+      await setDoc(doc(db, "KOT", newKOTId), data);
+    } catch (error) {
+      console.error("Error saving KOT:", error);
+      alert("Error saving KOT document");
+      return;
+    }
+  
+    // 4. Update customer points if applicable
+    if (customerId && !isEmployee) {
       try {
-        // Update customer document
         const customerDoc = customerPhone
           ? doc(db, "customers", customerPhone)
           : doc(db, "customers", customerId);
-
+  
         await setDoc(
           customerDoc,
           {
@@ -441,7 +487,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           },
           { merge: true }
         );
-
+  
         // Add to loyalty history
         await addDoc(collection(db, "loyaltyHistory"), {
           customerID: customerId,
@@ -454,88 +500,60 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         console.error("Error updating customer points:", error);
       }
     }
-
-    // Print KOT
+  
+    // 5. Print KOT receipt
     const printContent = `
-    <div style="font-family: Arial, sans-serif; border: 1px solid #000; padding: 10px; width: 200px;">
-      <h3 style="text-align: center;">KOT</h3>
-      <p><strong>KOT ID:</strong> ${newKOTId}</p>
-      ${
-        customerId
-          ? `<p><strong>${
-              isEmployee ? "Employee" : "Customer"
-            }:</strong> ${customerName} (${customerId})</p>`
-          : ""
-      }
-      ${
-        isEmployee
-          ? `<p><strong>Meal Credits Used:</strong> £${creditsUsed}</p>
-             ${
-               cashDue > 0
-                 ? `<p><strong>Cash Paid:</strong> £${cashDue}</p>`
-                 : ""
-             }`
-          : ""
-      }
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr>
-            <th style="border: 1px solid #000; padding: 4px;">Item</th>
-            <th style="border: 1px solid #000; padding: 4px;">Qty</th>
-            <th style="border: 1px solid #000; padding: 4px;">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${kotItems
-            .map(
-              (item) => `
+      <div style="font-family: Arial, sans-serif; border: 1px solid #000; padding: 10px; width: 200px;">
+        <h3 style="text-align: center;">KOT</h3>
+        <p><strong>KOT ID:</strong> ${newKOTId}</p>
+        ${customerId ? `<p><strong>${isEmployee ? "Employee" : "Customer"}:</strong> ${customerName} (${customerId})</p>` : ""}
+        ${isEmployee ? `<p><strong>Meal Credits Used:</strong> £${creditsUsed}</p>` : ""}
+        ${isEmployee && cashDue > 0 ? `<p><strong>Cash Paid:</strong> £${cashDue}</p>` : ""}
+        
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="border: 1px solid #000; padding: 4px;">Item</th>
+              <th style="border: 1px solid #000; padding: 4px;">Qty</th>
+              <th style="border: 1px solid #000; padding: 4px;">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${kotItems.map(item => `
               <tr>
                 <td style="border: 1px solid #000; padding: 5px;">
                   ${item.name}
-                  ${
-                    item.sauces?.length > 0
-                      ? `<div style="font-size: 10px; color: #555;">${item.sauces.join(
-                          ", "
-                        )}</div>`
-                      : ""
-                  }
+                  ${item.sauces?.length > 0 ? `<div style="font-size: 10px; color: #555;">${item.sauces.join(", ")}</div>` : ""}
                 </td>
-                <td style="border: 1px solid #000; padding: 5px;">${
-                  item.quantity
-                }</td>
-                <td style="border: 1px solid #000; padding: 5px;">£${
-                  item.quantity * item.price
-                }</td>
+                <td style="border: 1px solid #000; padding: 5px;">${item.quantity}</td>
+                <td style="border: 1px solid #000; padding: 5px;">£${item.quantity * item.price}</td>
               </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>
-      <p><strong>Sub Total:</strong> £${subTotal}</p>
-      <p><strong>Discount:</strong> £${creditsUsed}</p>
-      <p><strong>Total:</strong> £${total - creditsUsed}</p>
-      ${
-        customerPoints >= 2 && !isEmployee
-          ? `<p style="color: green;">10% discount applied (Points: ${customerPoints})</p>`
-          : ""
-      }
-      ${
-        customerId && !isEmployee
-          ? `<p><strong>Earned Points:</strong> ${earnedPoints}</p>`
-          : ""
-      }
-    </div>
-  `;
-
+            ).join("")}
+          </tbody>
+        </table>
+        
+        <p><strong>Sub Total:</strong> £${subTotal}</p>
+        <p><strong>Discount:</strong> £${discount}</p>
+        <p><strong>Total:</strong> £${total}</p>
+        ${customerPoints >= 2 && !isEmployee ? `<p style="color: green;">10% discount applied (Points: ${customerPoints})</p>` : ""}
+        ${customerId && !isEmployee ? `<p><strong>Earned Points:</strong> ${earnedPoints}</p>` : ""}
+        <p style="font-size: 10px; text-align: center; margin-top: 10px;">${new Date().toLocaleString()}</p>
+      </div>
+    `;
+  
+    // 6. Print or display the KOT
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.open();
       printWindow.document.write(printContent);
       printWindow.document.close();
-      printWindow.print();
-      printWindow.close();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 200);
     }
-
+  
+    // 7. Clear the current order
     clearItems();
   };
 
