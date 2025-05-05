@@ -93,7 +93,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
   };
  
   return (
-    <div className="flex flex-row w-full h-[calc(100vh-130px)] overflow-hidden">
+    <div className="flex flex-row w-full h-[calc(100vh-140px)] overflow-hidden">
       {/* Categories */}
       <div className="w-[180px] bg-purple-800 text-white p-2 flex flex-col gap-1 overflow-y-auto">
         {categories.map((cat) => (
