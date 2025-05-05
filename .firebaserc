@@ -1,13 +1,15 @@
 {
   "projects": {
-    "default": "bhookiecore",
-    "bhookiecore": "bhookiecore"
+    "default": "bhookiecore"
   },
   "targets": {
     "bhookiecore": {
       "hosting": {
-        "bhookiepossystem": ["bhookiecore"]
+        "bhookiepossystem": [
+          "bhookiepossystem"
+        ]
       }
     }
-  }
+  },
+  "etags": {}
 }
