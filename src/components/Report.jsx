@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useMemo } from "react";
 import {
   getFirestore,
   doc,
@@ -11,13 +11,42 @@ import {
   limit,
   startAfter,
 } from "firebase/firestore";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  isWithinInterval,
+  differenceInDays,
+} from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { CSVLink } from "react-csv";
 import { useReactToPrint } from "react-to-print";
+import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 
 const roleMap = {
   cash01: "cashier",
   manage01: "manager",
+};
+
+const CURRENCY_SYMBOL = "£";
+const PAGE_SIZE = 50;
+const DATE_FORMAT = "yyyy-MM-dd";
+
+const itemCategoryMap = {
+  Coke: "Beverage",
+  Pepsi: "Beverage",
+  Burger: "Food",
+  Pizza: "Food",
+  "Ice Cream": "Dessert",
+  "Chicken fillets": "cat01",
+  // Add more item name to category mappings here
 };
 
 const ReportPage = () => {
@@ -41,8 +70,34 @@ const ReportPage = () => {
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [customerFilter, setCustomerFilter] = useState("");
   const [itemNameFilter, setItemNameFilter] = useState("");
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [orderTypeFilter, setOrderTypeFilter] = useState("all");
+  const [categories, setCategories] = useState([]);
+  const [itemsList, setItemsList] = useState([]);
+  const [usersList, setUsersList] = useState([]);
+  const [salesStartDate, setSalesStartDate] = useState(startOfDay(new Date()));
+  const [salesEndDate, setSalesEndDate] = useState(endOfDay(new Date()));
+  const [selectedPeriod, setSelectedPeriod] = useState("daily");
   const reportRef = React.useRef();
   const navigate = useNavigate();
+
+
+  useEffect(() => {
+    const fetchCategoriesAndItems = async () => {
+      const cats = await getDocs(collection(db, "category"));
+      setCategories(cats.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+
+      const items = await getDocs(collection(db, "items"));
+      setItemsList(items.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+
+      const users = await getDocs(collection(db, "users"));
+      setUsersList(users.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+
+    if (isAuthenticated) fetchCategoriesAndItems();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -59,6 +114,291 @@ const ReportPage = () => {
     customerFilter,
     isAuthenticated,
   ]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentView === "sales") {
+      fetchSalesData();
+    }
+  }, [
+    salesStartDate,
+    salesEndDate,
+    paymentFilter,
+    isAuthenticated,
+    currentView,
+  ]);
+
+  useEffect(() => {
+    if (selectedPeriod === "custom") return;
+
+    const now = new Date();
+    let start, end;
+
+    switch (selectedPeriod) {
+      case "daily":
+        start = startOfDay(now);
+        end = endOfDay(now);
+        break;
+      case "weekly":
+        start = startOfWeek(now);
+        end = endOfWeek(now);
+        break;
+      case "monthly":
+        start = startOfMonth(now);
+        end = endOfMonth(now);
+        break;
+      case "yearly":
+        start = startOfYear(now);
+        end = endOfYear(now);
+        break;
+      default:
+        return;
+    }
+    console.log("Setting Dates", { start, end });
+    setSalesStartDate(start);
+    setSalesEndDate(end);
+  }, [selectedPeriod]);
+
+  const fetchSalesData = async () => {
+    setLoading(true);
+    try {
+      let baseQuery = query(
+        collection(db, "KOT"),
+        where("date", ">=", salesStartDate),
+        where("date", "<=", salesEndDate),
+        orderBy("date", "desc")
+      );
+
+      if (paymentFilter !== "all") {
+        baseQuery = query(
+          baseQuery,
+          where("paymentMethod", "==", paymentFilter)
+        );
+      }
+
+      const querySnapshot = await getDocs(baseQuery);
+      const newHistory = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date.toDate(),
+        items: doc.data().items || [],
+      }));
+
+      setKotHistory(newHistory);
+    } catch (error) {
+      console.error("Error fetching sales data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredSales = useMemo(() => {
+    return kotHistory.filter((kot) => {
+      // Date filter
+      const isWithinDateRange = isWithinInterval(kot.date, {
+        start: salesStartDate,
+        end: salesEndDate,
+      });
+
+      // Payment method filter
+      const matchesPayment =
+        paymentFilter === "all" || kot.methodOfPayment === paymentFilter;
+
+      // Order type filter
+      const matchesOrderType =
+        orderTypeFilter === "all" || kot.orderType === orderTypeFilter;
+
+      // Customer filter (assuming customerId in KOT)
+      const matchesCustomer =
+        !customerFilter.trim() ||
+        (kot.customerID &&
+          kot.customerID
+            .toString()
+            .toLowerCase()
+            .includes(customerFilter.trim().toLowerCase()));
+
+      // Item filters
+      const hasMatchingItems = kot.items.some((item) => {
+        // Get category from itemCategoryMap using item name
+        const itemCategory = itemCategoryMap[item.name] || "Uncategorized";
+
+        // Category filter check
+        const matchesCategory =
+          categoryFilter === "all" || itemCategory === categoryFilter;
+
+        // Item name filter check
+        const matchesName =
+          !itemNameFilter ||
+          item.name.toLowerCase().includes(itemNameFilter.toLowerCase());
+
+        return matchesCategory && matchesName;
+      });
+
+      return (
+        isWithinDateRange &&
+        matchesPayment &&
+        // matchesOrderType &&
+        matchesCustomer &&
+        hasMatchingItems
+      );
+    });
+  }, [
+    kotHistory,
+    salesStartDate,
+    salesEndDate,
+    paymentFilter,
+    orderTypeFilter,
+    customerFilter,
+    categoryFilter,
+    itemNameFilter,
+    itemCategoryMap, // Add itemCategoryMap to dependencies
+    selectedPeriod,
+  ]);
+
+  const summaryData = useMemo(() => {
+    let totalSales = 0;
+    let totalItemsSold = 0;
+    const itemsCount = {};
+
+    // Use filteredSales instead of kotHistory to respect current filters
+    filteredSales.forEach((kot) => {
+      totalSales += kot.amount;
+      kot.items.forEach((item) => {
+        totalItemsSold += item.quantity;
+        itemsCount[item.name] = (itemsCount[item.name] || 0) + item.quantity;
+      });
+    });
+
+    // Calculate number of days in selected period
+    const daysInPeriod = differenceInDays(salesEndDate, salesStartDate) + 1;
+
+    // Calculate averages
+    const averageDailySales = totalSales / daysInPeriod;
+    const averagePerOrder =
+      filteredSales.length > 0 ? totalSales / filteredSales.length : 0;
+
+    const itemsArray = Object.entries(itemsCount).map(([name, count]) => ({
+      name,
+      count,
+    }));
+    const bestseller = itemsArray.reduce(
+      (max, item) => (item.count > max.count ? item : max),
+      { count: 0 }
+    );
+    const leastSold = itemsArray.reduce(
+      (min, item) => (item.count < min.count ? item : min),
+      { count: Infinity }
+    );
+
+    return {
+      totalSales,
+      totalOrders: filteredSales.length,
+      totalItemsSold,
+      bestseller,
+      leastSold,
+      averageDailySales, // Add new metrics
+      averagePerOrder,
+    };
+  }, [filteredSales, salesStartDate, salesEndDate]);
+
+  const generatePDF = () => {
+    try {
+      const doc = new jsPDF();
+      const currentDate = format(new Date(), "yyyy-MM-dd_HH-mm-ss");
+
+      // Add report title
+      doc.setFontSize(18);
+      doc.text("Sales Report", 14, 22);
+      doc.setFontSize(12);
+      doc.text(`Generated: ${format(new Date(), "PPPP")}`, 14, 28);
+
+      // Prepare table data
+      const columns = [
+        "Item Name",
+        "Category",
+        "Quantity",
+        "Unit Price",
+        "Total",
+        "Order Type",
+        "Payment Method",
+        "Cashier",
+        "Time",
+      ];
+
+      const rows = filteredSales.flatMap((kot) =>
+        kot.items.map((item) => [
+          item.name || "N/A",
+          kot.category || "N/A",
+          item.quantity,
+          `${CURRENCY_SYMBOL}${item.price?.toFixed(2) || "0.00"}`,
+          `${CURRENCY_SYMBOL}${
+            (item.quantity * item.price)?.toFixed(2) || "0.00"
+          }`,
+          kot.orderType || "N/A",
+          kot.paymentMethod || "N/A",
+          kot.userId || "N/A",
+          format(kot.date, "HH:mm:ss"),
+        ])
+      );
+
+      // Add autoTable
+      doc.autoTable({
+        head: [columns],
+        body: rows,
+        startY: 35,
+        styles: {
+          fontSize: 10,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontSize: 11,
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        columnStyles: {
+          2: { cellWidth: 20 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 25 },
+        },
+      });
+
+      // Add summary section
+      const summaryY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(12);
+      doc.text("Summary", 14, summaryY);
+
+      const summaryData = [
+        [`Total Sales: ${CURRENCY_SYMBOL}${summaryData.totalSales.toFixed(2)}`],
+        [`Total Orders: ${summaryData.totalOrders}`],
+        [
+          `Bestseller: ${summaryData.bestseller?.name} (${summaryData.bestseller?.count})`,
+        ],
+        [
+          `Least Sold: ${summaryData.leastSold?.name} (${summaryData.leastSold?.count})`,
+        ],
+      ];
+
+      doc.autoTable({
+        body: summaryData,
+        startY: summaryY + 5,
+        showHead: false,
+        styles: {
+          fontSize: 11,
+          cellPadding: 3,
+        },
+        theme: "plain",
+      });
+
+      // Save the PDF
+      doc.save(`sales_report_${currentDate}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF. Please try again.");
+    }
+  };
+
 
   function getTodayDate() {
     const today = new Date();
@@ -361,37 +701,91 @@ const ReportPage = () => {
         </div>
       )}
 
-      {currentView === "sales" && (
+{currentView === "sales" && (
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <h1>Sales Report for {selectedDate}</h1>
-            <button onClick={() => setCurrentView("home")}>Back</button>
-          </div>
-
-          <div className="filters">
-            <label>
-              Select Date:
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+          <div className="filters-grid">
+            {/* Date Range Filter */}
+            <div className="filter-group">
+              <label>Date Range:</label>
+              <DatePicker
+                selected={salesStartDate}
+                onChange={(date) => {
+                  setSalesStartDate(startOfDay(date));
+                  setSelectedPeriod("custom");
+                }}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                dateFormat={DATE_FORMAT}
+                className="date-picker"
               />
-            </label>
-
-            <label>
-              Item Name:
-              <input
-                type="text"
-                value={itemNameFilter}
-                onChange={(e) => setItemNameFilter(e.target.value)}
-                placeholder="Search items..."
+              <DatePicker
+                selected={salesEndDate}
+                onChange={(date) => {
+                  setSalesEndDate(endOfDay(date));
+                  setSelectedPeriod("custom");
+                }}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                minDate={startDate}
+                dateFormat={DATE_FORMAT}
+                className="date-picker"
               />
-            </label>
+            </div>
 
-            <label>
-              Payment Method:
+            {/* Category Filter */}
+            <div className="filter-group">
+              <label>Category:</label>
               <select
-                value={paymentFilter}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Order Type Filter */}
+            <div className="filter-group">
+              <label>Order Type:</label>
+              <select
+                value={orderTypeFilter}
+                onChange={(e) => setOrderTypeFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Types</option>
+                <option value="dine-in">Dine-In</option>
+                <option value="takeaway">Takeaway</option>
+                <option value="delivery">Delivery</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Period:</label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="filter-select"
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+
+            {/* Payment Method Filter */}
+            <div className="filter-group">
+              <label>Payment Method:</label>
+              <select
+                value={paymentFilter} // Correctly using generic state
                 onChange={(e) => setPaymentFilter(e.target.value)}
               >
                 <option value="all">All Payments</option>
@@ -399,73 +793,238 @@ const ReportPage = () => {
                 <option value="card">Card</option>
                 <option value="credit">Credit</option>
               </select>
-            </label>
+            </div>
 
+            {/* Customer Filter */}
+            <div className="filter-group">
+              <label>Customer ID:</label>
+              <input
+                type="text"
+                value={customerFilter}
+                onChange={(e) => setCustomerFilter(e.target.value)}
+                placeholder="Search customer..."
+                className="filter-input"
+              />
+            </div>
+
+            {/* Item Name Filter */}
+            <div className="filter-group">
+              <label>Item Name:</label>
+              <input
+                type="text"
+                value={itemNameFilter}
+                onChange={(e) => setItemNameFilter(e.target.value)}
+                placeholder="Search items..."
+                className="filter-input"
+              />
+            </div>
+          </div>
+
+          <div className="summary-cards">
+            <div className="summary-card">
+              <h3>Total Sales</h3>
+              <p>
+                {CURRENCY_SYMBOL}
+                {summaryData.totalSales.toFixed(2)}
+              </p>
+            </div>
+            <div className="summary-card">
+              <h3>Total Orders</h3>
+              <p>{summaryData.totalOrders}</p>
+            </div>
+            <div className="summary-card">
+              <h3>Bestseller</h3>
+              <p>
+                {summaryData.bestseller?.name || "N/A"}(
+                {summaryData.bestseller?.count || 0})
+              </p>
+            </div>
+            <div className="summary-card">
+              <h3>Least Sold</h3>
+              <p>
+                {summaryData.leastSold?.name || "N/A"}(
+                {summaryData.leastSold?.count || 0})
+              </p>
+            </div>
+            <div className="summary-card">
+              <h3>Average Daily Sales</h3>
+              <p>
+                {CURRENCY_SYMBOL}
+                {summaryData.averageDailySales.toFixed(2)}
+              </p>
+            </div>
+            <div className="summary-card">
+              <h3>Avg. per Order</h3>
+              <p>
+                {CURRENCY_SYMBOL}
+                {summaryData.averagePerOrder.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+                <th>Order Type</th>
+                <th>Payment Method</th>
+                <th>Cashier</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSales.flatMap((kot) =>
+                kot.items.map((item, index) => (
+                  <tr key={`${kot.id}-${index}`}>
+                    <td>{item.name || "Unknown Item"}</td>
+                    <td>{itemCategoryMap[item.name] || "Uncategorized"}</td>
+
+                    <td>{item.quantity}</td>
+                    <td>
+                      {CURRENCY_SYMBOL}
+                      {(Number(item.price) || 0).toFixed(2)}
+                    </td>
+                    <td>
+                      {CURRENCY_SYMBOL}
+                      {(
+                        (Number(item.quantity) || 0) * (Number(item.price) || 0)
+                      ).toFixed(2)}
+                    </td>
+                    <td>{kot.orderType || "Unknown"}</td>
+                    <td>{kot.methodOfPayment || "Unknown"}</td>
+                    <td>{kot.userId || "Unknown"}</td>
+                    <td>{format(kot.date, "HH:mm:ss")}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+
+          <div className="export-options">
             <CSVLink
               data={formatSalesCSVData()}
-              filename={`Sales_Report_${selectedDate}.csv`}
-              className="btn"
+              filename={`Sales_Report_${format(new Date(), DATE_FORMAT)}.csv`}
             >
-              Download CSV
+              <button className="export-btn">Export to CSV</button>
             </CSVLink>
-
-            <button onClick={handlePrint} className="btn">
+            <button className="export-btn" onClick={generatePDF}>
+              Export to PDF
+            </button>
+            <button className="export-btn" onClick={handlePrint}>
               Print Report
             </button>
           </div>
 
-          <div ref={reportRef}>
-            {loading ? (
-              <div>Loading sales data...</div>
-            ) : kotHistory.length === 0 ? (
-              <div>No sales found for selected date</div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>KOT ID</th>
-                    <th>Item Name</th>
-                    <th>Quantity</th>
-                    <th>Unit Price</th>
-                    <th>Total Price</th>
-                    <th>Date/Time</th>
-                    <th>Customer</th>
-                    <th>Payment Method</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kotHistory
-                    .flatMap((kot) =>
-                      kot.items
-                        .filter((item) =>
-                          item.name
-                            .toLowerCase()
-                            .includes(itemNameFilter.toLowerCase())
-                        ) // Added missing closing parenthesis here
-                        .map((item) => ({ kot, item }))
-                    )
-                    .map(({ kot, item }, index) => (
-                      <tr key={`${kot.id}-${index}`}>
-                        <td>{kot.kot_id}</td>
-                        <td>{item.name}</td>
-                        <td>{item.quantity}</td>
-                        <td>£{item.price?.toFixed(2)}</td>
-                        <td>£{(item.quantity * item.price)?.toFixed(2)}</td>
-                        <td>{kot.date.toLocaleString()}</td>
-                        <td>{formatCustomerId(kot.customerId)}</td>
-                        <td>{kot.paymentMethod}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <style jsx>{`
+            .filters-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+              gap: 1rem;
+              margin-bottom: 2rem;
+            }
 
-          {hasMore && !loading && (
-            <button onClick={() => fetchKOTHistory(true)} className="btn">
-              Load More
-            </button>
-          )}
+            .filter-group {
+              display: flex;
+              flex-direction: column;
+              gap: 0.5rem;
+            }
+
+            .date-picker {
+              width: 100%;
+              padding: 0.5rem;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+            }
+
+            .filter-select {
+              padding: 0.5rem;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+            }
+
+            .filter-input {
+              padding: 0.5rem;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+              width: 100%;
+            }
+
+            .summary-cards {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+              gap: 1rem;
+              margin: 2rem 0;
+            }
+
+            .summary-card {
+              background: #f8f9fa;
+              border-radius: 8px;
+              padding: 1.5rem;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              text-align: center;
+            }
+
+            .summary-card h3 {
+              color: #2c3e50;
+              margin-bottom: 0.5rem;
+              font-size: 1.1rem;
+            }
+
+            .summary-card p {
+              font-size: 1.4rem;
+              font-weight: bold;
+              color: #27ae60;
+              margin: 0;
+            }
+
+            .export-options {
+              margin-top: 2rem;
+              display: flex;
+              gap: 1rem;
+              flex-wrap: wrap;
+              justify-content: center;
+            }
+
+            .export-btn {
+              padding: 0.75rem 1.5rem;
+              background-color: #007bff;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              transition: background-color 0.3s;
+            }
+
+            .export-btn:hover {
+              background-color: #0056b3;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 1rem;
+            }
+
+            th,
+            td {
+              padding: 12px;
+              text-align: left;
+              border-bottom: 1px solid #ddd;
+            }
+
+            th {
+              background-color: #f8f9fa;
+              font-weight: 600;
+            }
+
+            tr:hover {
+              background-color: #f5f5f5;
+            }
+          `}</style>
         </div>
       )}
 
