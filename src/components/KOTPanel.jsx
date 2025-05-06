@@ -115,15 +115,20 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       0
     );
     setSubTotal(subtotal);
-    
-    // Only apply discount if we have a customer AND they're not an employee
-    const newDiscount = (customerId && !isEmployee && customerPoints >= 2) 
-      ? subtotal * 0.1 
-      : 0;
-      
+  
+    // Apply credits-based discount logic
+    let newDiscount = 0;
+  
+    if (customerId && !isEmployee) {
+      // Max credits that can be used: either customer's points, or the subtotal (no over-discount)
+      const maxCreditsUsable = Math.min(customerPoints, subtotal);
+      newDiscount = maxCreditsUsable;
+    }
+  
     setDiscount(newDiscount);
     setTotal(subtotal - newDiscount);
   };
+  
 
   const openNumberPad = (index) => {
     setSelectedItemIndex(index);
@@ -255,7 +260,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     if (!customerSearch) return;
 
     try {
-      const customersRef = collection(db, "customers");
+      const customersRef = collection(db, "Members");
       const empRef = collection(db, "Employees");
 
       // Run all queries in parallel
@@ -354,11 +359,18 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setIsCustomerModalOpen(false);
     setIsPaymentModalOpen(true);
 
-    if (customer.points >= 2) {
-      const discountAmount = subTotal * 0.1;
-      setDiscount(discountAmount);
-      setTotal(subTotal - discountAmount);
+    if (customer.points > 0) {
+      const maxCreditsUsable = Math.min(customer.points, subTotal);
+      setDiscount(maxCreditsUsable);
+      setTotal(subTotal - maxCreditsUsable);
+    } else {
+      setDiscount(0);
+      setTotal(subTotal);
     }
+    
+    setIsCustomerModalOpen(false);
+    setIsPaymentModalOpen(true);
+    
 
     setIsCustomerModalOpen(false);
     setIsPaymentModalOpen(true);
@@ -566,8 +578,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     }
   };
     return (
-<div className="p-4 w-full max-w-sm mx-auto">
-<h2 className="text-2xl font-bold mb-4">ORDER</h2>
+    <div className="p-4 w-full max-w-sm mx-auto">
+    <h2 className="text-2xl font-bold mb-4">ORDER</h2>
 
       {kotId && (
         <div className="mb-4 text-base font-semibold text-indigo-700 border border-indigo-300 rounded p-2 bg-indigo-50">
@@ -586,11 +598,16 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             </>
           ) : (
             <>
-              Customer: {customerName} ({customerId}) - Points: {customerPoints}
-              {customerPoints >= 2 && (
-                <p className="text-green-600">10% discount applied</p>
-              )}
-            </>
+            Customer: {customerName} ({customerId}) - Credits: {customerPoints}
+            {customerId && !isEmployee && (
+              <p className="text-green-600">
+                {discount > 0
+                  ? `£${discount} discount applied using credits`
+                  : "No credits used"}
+              </p>
+            )}
+          </>
+          
           )}
         </div>
       )}
@@ -843,7 +860,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                   {customer.points >= 2 &&
                     !(isEmployee && customer.isClockedIn) && (
                       <div className="text-green-600 text-sm">
-                        ✓ Eligible for 10% discount (Points: {customer.points})
+                        ✓ 20 credits applied for members (Points: {customer.points})
                       </div>
                     )}
                 </div>
