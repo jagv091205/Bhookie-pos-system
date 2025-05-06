@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   getFirestore,
   doc,
@@ -33,6 +33,8 @@ import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 const roleMap = {
   cash01: "cashier",
   manage01: "manager",
+  cashier: "cashier",
+  manager: "manager"
 };
 
 const CURRENCY_SYMBOL = "£";
@@ -82,7 +84,6 @@ const ReportPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("daily");
   const reportRef = React.useRef();
   const navigate = useNavigate();
-
 
   useEffect(() => {
     const fetchCategoriesAndItems = async () => {
@@ -399,7 +400,6 @@ const ReportPage = () => {
     }
   };
 
-
   function getTodayDate() {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -408,42 +408,43 @@ const ReportPage = () => {
   // Manager authentication handler
   const handleManagerLogin = async () => {
     const trimmedCode = code.trim();
-
-    if (!trimmedCode || trimmedCode.length !== 8) {
-      alert("Please enter a valid 8-digit code.");
+  
+    if (!trimmedCode) {
+      alert("Please enter a valid employee ID.");
       return;
     }
-
+  
     setAuthLoading(true);
-
+  
     try {
-      const userRef = doc(db, "users", trimmedCode);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const isActive =
-          userData["active/inactive"] === true || userData.active === true;
-
-        if (!isActive) {
-          alert("User is inactive.");
+      const usersRef = collection(db, "users_01");
+      const q = query(usersRef, where("employeeID", "==", trimmedCode));
+      const querySnapshot = await getDocs(q);
+  
+      console.log("Searching for employeeID:", trimmedCode);
+  
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        console.log("Found user document:", userData);
+  
+        // Case-insensitive role check
+        const roleCode = userData.role?.toLowerCase().trim();
+        const role = roleMap[Object.keys(roleMap).find(
+          key => key.toLowerCase() === roleCode
+        )];
+  
+        if (role === "manager") {
+          setIsAuthenticated(true);
         } else {
-          const roleRef = userData.roleId;
-          const roleId =
-            roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
-
-          if (roleId === "manage01") {
-            setIsAuthenticated(true);
-          } else {
-            alert("Only managers can access this page.");
-          }
+          alert("Only managers can access this page.");
         }
       } else {
-        alert("Invalid login code.");
+        alert("No employee found with this ID. Please check the ID and try again.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      alert("Something went wrong during login.");
+      alert("Login failed. Please check your connection and try again.");
     } finally {
       setAuthLoading(false);
     }
@@ -659,10 +660,9 @@ const ReportPage = () => {
           </h2>
           <input
             type="text"
-            placeholder="Enter 8-digit code"
+            placeholder="Enter employee ID"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            maxLength={8}
             className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
           />
 
@@ -701,7 +701,7 @@ const ReportPage = () => {
         </div>
       )}
 
-{currentView === "sales" && (
+      {currentView === "sales" && (
         <div>
           <div className="filters-grid">
             {/* Date Range Filter */}
@@ -1021,8 +1021,8 @@ const ReportPage = () => {
               font-weight: 600;
             }
 
-            tr:hover {
-              background-color: #f5f5f5;
+            td {
+              background-color: #fafafa;
             }
           `}</style>
         </div>
@@ -1103,7 +1103,7 @@ const ReportPage = () => {
           <div className="flex justify-between items-center mb-4">
             <h1>KOT Report for {selectedDate}</h1>
           </div>
-         
+
           <div className="filters">
             <label>
               Select Date:
@@ -1144,14 +1144,14 @@ const ReportPage = () => {
             >
               Download CSV
             </CSVLink>
-          
-          <button onClick={() => fetchKOTHistory()} className="btn">
-                Refresh
-              </button>
-              <button onClick={() => setCurrentView("home")} className="btn">Back</button>
 
+            <button onClick={() => fetchKOTHistory()} className="btn">
+              Refresh
+            </button>
+            <button onClick={() => setCurrentView("home")} className="btn">
+              Back
+            </button>
           </div>
-              
 
           <div ref={reportRef}>
             {loading ? (
