@@ -30,40 +30,40 @@ export default function ManagerLogin() {
 
   const handleLogin = async () => {
     const trimmedCode = code.trim();
-
+  
     if (!trimmedCode) {
       alert("Please enter an employee ID");
       return;
     }
-
+  
     setLoading(true);
-
+  
     try {
       const usersRef = collection(db, "users_01");
       const q = query(usersRef, where("employeeID", "==", trimmedCode));
       const querySnapshot = await getDocs(q);
-
+  
       console.log("Searching for employeeID:", JSON.stringify(trimmedCode)); // Enhanced debug
-
+  
       if (!querySnapshot.empty) {
         const userDoc = querySnapshot.docs[0];
         const userData = userDoc.data();
         console.log("Found user document:", JSON.stringify(userData, null, 2)); // Better logging
-
+  
         // Case-insensitive role check
         const roleCode = userData.role?.toLowerCase().trim(); // Convert to lowercase and trim
         const role = roleMap[Object.keys(roleMap).find(
           key => key.toLowerCase() === roleCode
         )];
-
+  
         if (role) {
-          setUser({
-            id: userDoc.id,
+          setUser({ 
+            id: userDoc.id, 
             employeeID: userData.employeeID,
-            ...userData,
-            role
+            ...userData, 
+            role 
           });
-
+  
           if (role === "manager") {
             navigate("/manager");
           } else {
@@ -100,9 +100,10 @@ export default function ManagerLogin() {
         <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
         <input
           type="text"
-          placeholder="Enter employee ID"
+          placeholder="Enter 8-digit employee ID"
           value={code}
           onChange={(e) => setCode(e.target.value)}
+          maxLength={8}
           className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
         />
         <button

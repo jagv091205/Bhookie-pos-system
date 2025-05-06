@@ -1,3 +1,4 @@
+import { useAuth } from "../contexts/AutoContext";
 import React, { useEffect, useState } from "react";
 import {
   collection,
@@ -17,7 +18,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AutoContext";
 
 const roleMap = {
   cash01: "cashier",
@@ -25,7 +25,7 @@ const roleMap = {
 };
 
 export default function ManagerScreen() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Initialize navigate
   const [activeTab, setActiveTab] = useState("Orders");
   const [orders, setOrders] = useState([]);
   const [selectedItemInfo, setSelectedItemInfo] = useState(null);
@@ -43,18 +43,23 @@ export default function ManagerScreen() {
   const { setUser, logout } = useAuth();
   const [filterDate, setFilterDate] = useState(() => {
     const today = new Date();
+    // Use local date components instead of ISO string
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrderAsc, setSortOrderAsc] = useState(true);
   const [selectedOrderInfo, setSelectedOrderInfo] = useState(null);
 
+  // useEffect for handling page close/navigation away
   useEffect(() => {
     const handleBeforeUnload = (event) => {
+      // Logout the user when the page is closed or navigated away from
       logout();
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
@@ -71,7 +76,7 @@ export default function ManagerScreen() {
     setCashierStatus("Authenticating...");
 
     try {
-      const userRef = doc(db, "users_01", trimmedCode);
+      const userRef = doc(db, "users", trimmedCode);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
@@ -96,7 +101,7 @@ export default function ManagerScreen() {
         return;
       }
 
-      // Check if already signed in
+      // 👉 Check if already signed in
       const attendanceRefCheck = query(
         collection(db, "cashierAttendance"),
         where("cashierId", "==", trimmedCode),
@@ -222,7 +227,7 @@ export default function ManagerScreen() {
         logoutTime: serverTimestamp(),
       });
 
-      // 4. Close any active cashSession
+      // ✅ 4. Close any active cashSession (new part you wanted)
       const cashSessionQuery = query(
         collection(db, "cashSessions"),
         where("isClosed", "==", false)
@@ -235,7 +240,7 @@ export default function ManagerScreen() {
         await updateDoc(cashSessionRef, {
           isClosed: true,
           closedAt: Timestamp.now(),
-          closedBy: trimmedCode,
+          closedBy: trimmedCode, // using cashierCode here
         });
         console.log("Cash session closed silently.");
       } else {
@@ -348,6 +353,7 @@ export default function ManagerScreen() {
     }
   };
 
+  // Daily reset check
   const checkDailyReset = async () => {
     try {
       const lastResetRef = doc(db, "system", "lastReset");
@@ -458,30 +464,35 @@ export default function ManagerScreen() {
     }
   };
 
+  // In ManagerScreen component
   const fetchOrders = async () => {
     try {
       let q = collection(db, "KOT");
-
+      
       if (filterDate) {
+        // Parse filterDate as LOCAL date (not UTC)
         const [year, month, day] = filterDate.split('-');
         const selectedDate = new Date(year, month - 1, day);
-
+        
+        // Start of day (00:00:00 LOCAL time)
         const startOfDay = new Date(selectedDate);
         startOfDay.setHours(0, 0, 0, 0);
-
+  
+        // End of day (23:59:59.999 LOCAL time)
         const endOfDay = new Date(selectedDate);
         endOfDay.setHours(23, 59, 59, 999);
-
+  
+        // Convert to Firestore Timestamps
         const startTimestamp = Timestamp.fromDate(startOfDay);
         const endTimestamp = Timestamp.fromDate(endOfDay);
-
+  
         q = query(
           q,
           where("date", ">=", startTimestamp),
           where("date", "<=", endTimestamp)
         );
       }
-
+  
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -492,7 +503,229 @@ export default function ManagerScreen() {
       console.error("Error fetching orders:", err);
     }
   };
+{/*
+  // Attendance Handlers
+  const getTodayDate = () => new Date().toISOString().split("T")[0];
 
+  const handleClockIn = async () => {
+    if (!empId) return alert("Please enter Employee ID");
+
+    try {
+      const empRef = doc(db, "Employees", empId);
+      const empSnap = await getDoc(empRef);
+      if (!empSnap.exists()) return alert("Employee not found");
+      const empName = empSnap.data().name;
+
+      const today = new Date();
+      const monthDocId = `${today.getFullYear()}-${String(
+        today.getMonth() + 1
+      ).padStart(2, "0")}`;
+      const dayKey = String(today.getDate()).padStart(2, "0");
+
+      const monthRef = doc(db, "Employees", empId, "attendance", monthDocId);
+
+      const checkInTimestamp = Timestamp.now();
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(monthRef);
+        const newSession = { checkIn: Timestamp.now(), checkOut: null };
+
+        // Check existing clock status
+        const existingDay = docSnap.exists()
+          ? docSnap.data().days?.[dayKey]
+          : null;
+        if (existingDay?.isClockedIn) {
+          throw new Error("You must clock out before clocking in again.");
+        }
+
+        if (!docSnap.exists()) {
+          transaction.set(monthRef, {
+            days: {
+              [dayKey]: {
+                sessions: [newSession],
+                isClockedIn: true,
+              },
+            },
+            metadata: {
+              created: serverTimestamp(),
+              lastUpdated: serverTimestamp(),
+            },
+          });
+        } else {
+          transaction.update(monthRef, {
+            [`days.${dayKey}.sessions`]: arrayUnion(newSession),
+            [`days.${dayKey}.isClockedIn`]: true,
+            "metadata.lastUpdated": serverTimestamp(),
+          });
+        }
+      });
+
+      setAttendanceMessages((prev) => [
+        ...prev,
+        `✅ Clocked in ${
+          empSnap.data().name
+        } at ${new Date().toLocaleTimeString()}`,
+      ]);
+      // Save attendance log with check-in only
+      await saveSessionToAttendanceLogs(empId, empName, checkInTimestamp, null);
+      setEmpId("");
+    } catch (err) {
+      console.error("Clock In error:", err);
+      alert(err.message || "Clock In failed");
+    }
+  };
+
+  const handleClockOut = async () => {
+    if (!empId) return alert("Please enter Employee ID");
+
+    try {
+      const empRef = doc(db, "Employees", empId);
+      const empSnap = await getDoc(empRef);
+      if (!empSnap.exists()) return alert("Employee not found");
+
+      const empName = empSnap.data().name;
+      const today = new Date();
+      const monthDocId = `${today.getFullYear()}-${String(
+        today.getMonth() + 1
+      ).padStart(2, "0")}`;
+      const dayKey = String(today.getDate()).padStart(2, "0");
+
+      const monthRef = doc(db, "Employees", empId, "attendance", monthDocId);
+
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(monthRef);
+        if (!docSnap.exists()) return;
+
+        const dayData = docSnap.data().days?.[dayKey] || {};
+        if (!dayData.isClockedIn) {
+          throw new Error("You are not currently clocked in.");
+        }
+
+        const sessions = [...dayData.sessions];
+        const lastSession = sessions[sessions.length - 1];
+
+        if (lastSession && !lastSession.checkOut) {
+          lastSession.checkOut = Timestamp.now();
+          // Now call your new save-to-log function here
+          await saveSessionToAttendanceLogs(
+            empId,
+            empName,
+            lastSession.checkIn,
+            lastSession.checkOut
+          );
+        }
+
+        transaction.update(monthRef, {
+          [`days.${dayKey}.sessions`]: sessions,
+          [`days.${dayKey}.isClockedIn`]: false,
+          "metadata.lastUpdated": serverTimestamp(),
+        });
+      });
+
+      setAttendanceMessages((prev) => [
+        ...prev,
+        `✅ Clocked out ${empId} at ${new Date().toLocaleTimeString()}`,
+      ]);
+      setEmpId("");
+    } catch (err) {
+      console.error("Clock Out error:", err);
+      alert(err.message || "Clock Out failed");
+    }
+  };
+
+  const handleShowLogs = async () => {
+    try {
+      const today = getTodayDate();
+      const employeesSnap = await getDocs(collection(db, "Employees"));
+      const logs = [];
+
+      for (const empDoc of employeesSnap.docs) {
+        const monthDocId = `${new Date().getFullYear()}-${String(
+          new Date().getMonth() + 1
+        ).padStart(2, "0")}`;
+        const monthRef = doc(
+          db,
+          "Employees",
+          empDoc.id,
+          "attendance",
+          monthDocId
+        );
+        const monthSnap = await getDoc(monthRef);
+
+        if (monthSnap.exists()) {
+          const dayKey = String(new Date().getDate()).padStart(2, "0");
+          const sessions = monthSnap.data().days?.[dayKey]?.sessions || [];
+
+          sessions.forEach((session) => {
+            const checkIn =
+              session.checkIn?.toDate().toLocaleTimeString() || "—";
+            const checkOut =
+              session.checkOut?.toDate().toLocaleTimeString() || "—";
+            let duration = "Incomplete";
+
+            if (session.checkIn && session.checkOut) {
+              const diff = session.checkOut.toDate() - session.checkIn.toDate();
+              duration = `${Math.floor(diff / 3600000)}h ${Math.floor(
+                (diff % 3600000) / 60000
+              )}m`;
+            }
+
+            logs.push({
+              empName: empDoc.data().name,
+              checkInStr: checkIn,
+              checkOutStr: checkOut,
+              worked: duration,
+            });
+          });
+        }
+      }
+
+      setTodayLogs(logs);
+      setLogsVisible(!logsVisible);
+    } catch (err) {
+      console.error("Fetch logs error:", err);
+      alert("Failed to load attendance logs");
+    }
+  };
+
+  const saveSessionToAttendanceLogs = async (empId, empName, checkIn, checkOut) => {
+    try {
+      const todayDate = getTodayDate();
+      const logDocRef = doc(db, "AttendanceLogs", todayDate);
+      const logDocSnap = await getDoc(logDocRef);
+  
+      // Calculate worked hours
+      let worked = "Incomplete";
+      if (checkIn && checkOut) {
+        const diff = checkOut.toDate() - checkIn.toDate();
+        worked = `${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`;
+      }
+  
+      const sessionData = {
+        empId,
+        empName,
+        checkIn: checkIn ? checkIn.toDate().toLocaleTimeString() : "—",
+        checkOut: checkOut ? checkOut.toDate().toLocaleTimeString() : "—",
+        worked,
+        sessionTimestamp: new Date().toISOString(), // optional, to track when this log was created
+      };
+  
+      // If AttendanceLogs doc for today doesn't exist, create it
+      if (!logDocSnap.exists()) {
+        await setDoc(logDocRef, {});
+      }
+  
+      const logsRef = collection(logDocRef, "logs");
+  
+      // Always add a new log (don't overwrite)
+      await addDoc(logsRef, sessionData);
+      console.log("Attendance session log created ✅");
+  
+    } catch (err) {
+      console.error("Error saving attendance session log:", err);
+    }
+  };
+  
+*/}
   useEffect(() => {
     if (activeTab === "Orders") fetchOrders();
     if (activeTab === "Staff Meal") {
@@ -522,14 +755,14 @@ export default function ManagerScreen() {
   return (
     <div className="flex min-h-screen">
       <button
-        onClick={() => {
-          logout();
-          navigate("/");
-        }}
-        className="absolute bottom-4 left-4 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
-      >
-        Back
-      </button>
+  onClick={() => {
+    logout();
+    navigate("/");
+  }}
+  className="absolute bottom-4 left-4 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
+>
+   Back
+</button>
       <aside className="w-64 bg-gray-800 text-white p-6 space-y-4">
         <h2 className="text-2xl font-bold mb-6">Manager Panel</h2>
         <nav className="space-y-2">
@@ -549,14 +782,31 @@ export default function ManagerScreen() {
           >
             Staff Meal
           </button>
-          <button
+          {/* <button
             className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Cash Management" ? "bg-gray-700" : "hover:bg-gray-700"
+              activeTab === "Cash" ? "bg-gray-700" : "hover:bg-gray-700"
             }`}
-            onClick={() => setActiveTab("Cash Management")}
+            onClick={() => setActiveTab("Cash")}
           >
-            Cashier Control Panel
+            Cash
+          </button> */}
+         {/*} <button
+            className={`block w-full text-left px-4 py-2 rounded ${
+              activeTab === "Attendance" ? "bg-gray-700" : "hover:bg-gray-700"
+            }`}
+            onClick={() => setActiveTab("Attendance")}
+          >
+            Attendance
+          </button> */}
+         <button
+           className={`block w-full text-left px-4 py-2 rounded ${
+            activeTab === "Cash Management" ? "bg-gray-700" : "hover:bg-gray-700"
+          }`} 
+          onClick={() => setActiveTab("Cash Management")}
+          >
+              Cashier Control Panel
           </button>
+
         </nav>
       </aside>
 
@@ -775,68 +1025,68 @@ export default function ManagerScreen() {
         )}
 
         {activeTab === "Cash Management" && (
-          <div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cashier Login Code
-              </label>
-              <input
-                type="text"
-                value={cashierCode}
-                onChange={(e) => setCashierCode(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md shadow-sm text-black bg-white"
-                placeholder="Enter Cashier Login Code"
-              />
-            </div>
+  <div>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Cashier Login Code
+      </label>
+      <input
+        type="text"
+        value={cashierCode}
+        onChange={(e) => setCashierCode(e.target.value)}
+        className="w-full px-3 py-2 border rounded-md shadow-sm text-black bg-white"
+        placeholder="Enter Cashier Login Code"
+      />
+    </div>
 
-            {/* Status Message */}
-            {cashierStatus && (
-              <div className="mb-4 text-sm text-gray-700">
-                <strong>Status:</strong> {cashierStatus}
-              </div>
-            )}
+    {/* Status Message */}
+    {cashierStatus && (
+      <div className="mb-4 text-sm text-gray-700">
+        <strong>Status:</strong> {cashierStatus}
+      </div>
+    )}
 
-            <div className="flex flex-wrap gap-4">
-              {/* Sign In */}
-              <button
-                onClick={handleSignInCashier}
-                disabled={!cashierCode || cashierLoading}
-                className={`bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900 ${
-                  cashierLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {cashierLoading ? 'Signing In...' : 'Sign In Cashier'}
-              </button>
+    <div className="flex flex-wrap gap-4">
+      {/* Sign In */}
+      <button
+        onClick={handleSignInCashier}
+        disabled={!cashierCode || cashierLoading}
+        className={`bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900 ${
+          cashierLoading ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {cashierLoading ? 'Signing In...' : 'Sign In Cashier'}
+      </button>
 
-              {/* Open Cashier */}
-              <button
-                onClick={() => handleOpenCashier(cashierCode)}
-                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
-                disabled={!cashierCode}
-              >
-                Open Cashier
-              </button>
+      {/* Open Cashier */}
+      <button
+        onClick={() => handleOpenCashier(cashierCode)}
+        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
+        disabled={!cashierCode}
+      >
+        Open Cashier
+      </button>
 
-              {/* Close Cashier */}
-              <button
-                onClick={() => handleCloseCashier(cashierCode)}
-                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
-                disabled={!cashierCode}
-              >
-                Close Cashier
-              </button>
+      {/* Close Cashier */}
+      <button
+        onClick={() => handleCloseCashier(cashierCode)}
+        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
+        disabled={!cashierCode}
+      >
+        Close Cashier
+      </button>
 
-              {/* Sign Out */}
-              <button
-                onClick={handleSignOutCashier}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                disabled={!cashierCode}
-              >
-                Sign Out Cashier
-              </button>
-            </div>
-          </div>
-        )}
+      {/* Sign Out */}
+      <button
+        onClick={handleSignOutCashier}
+        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+        disabled={!cashierCode}
+      >
+        Sign Out Cashier
+      </button>
+    </div>
+  </div>
+)}
 
         {activeTab === "Cash" && (
           <div className="p-4 bg-gray-50 rounded-lg">
@@ -846,6 +1096,80 @@ export default function ManagerScreen() {
             </p>
           </div>
         )}
+{/*
+        {activeTab === "Attendance" && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold mb-4">
+              Attendance Management
+            </h3>
+
+            <div className="mb-4 flex gap-2">
+              <input
+                type="text"
+                placeholder="Employee ID"
+                className="border p-2 rounded flex-1"
+                value={empId}
+                onChange={(e) => setEmpId(e.target.value)}
+              />
+              <button
+                onClick={handleClockIn}
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              >
+                Clock In
+              </button>
+              <button
+                onClick={handleClockOut}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                Clock Out
+              </button>
+            </div>
+
+            <div className="mb-4 space-y-2">
+              {attendanceMessages.map((msg, index) => (
+                <div key={index} className="bg-white p-2 rounded shadow-sm">
+                  {msg}
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={handleShowLogs}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4"
+            >
+              {logsVisible ? "Hide Today's Logs" : "Show Today's Logs"}
+            </button>
+
+            {logsVisible && (
+              <div className="bg-white p-4 rounded shadow">
+                <h4 className="text-center font-medium mb-2">
+                  Today's Attendance
+                </h4>
+                <table className="w-full">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="p-2">Employee</th>
+                      <th className="p-2">Check-In</th>
+                      <th className="p-2">Check-Out</th>
+                      <th className="p-2">Hours Worked</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayLogs.map((log, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="p-2 text-center">{log.empName}</td>
+                        <td className="p-2 text-center">{log.checkInStr}</td>
+                        <td className="p-2 text-center">{log.checkOutStr}</td>
+                        <td className="p-2 text-center">{log.worked}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+          */}
       </main>
     </div>
   );
