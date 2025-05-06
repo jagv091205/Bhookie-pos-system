@@ -18,6 +18,8 @@ import { useReactToPrint } from "react-to-print";
 const roleMap = {
   cash01: "cashier",
   manage01: "manager",
+  cashier: "cashier",
+  manager: "manager"
 };
 
 const ReportPage = () => {
@@ -68,38 +70,39 @@ const ReportPage = () => {
   // Manager authentication handler
   const handleManagerLogin = async () => {
     const trimmedCode = code.trim();
-
-    if (!trimmedCode || trimmedCode.length !== 8) {
-      alert("Please enter a valid 8-digit code.");
+  
+    if (!trimmedCode) {
+      alert("Please enter a valid employee ID.");
       return;
     }
-
+  
     setAuthLoading(true);
-
+  
     try {
-      const userRef = doc(db, "users", trimmedCode);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const isActive =
-          userData["active/inactive"] === true || userData.active === true;
-
-        if (!isActive) {
-          alert("User is inactive.");
+      // Query users collection where employeeID matches
+      const usersRef = collection(db, "users_01");
+      const q = query(usersRef, where("employeeID", "==", trimmedCode));
+      const querySnapshot = await getDocs(q);
+  
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        
+        // REMOVED THE ACTIVE/INACTIVE CHECK SINCE IT DOESN'T EXIST IN YOUR DB
+        
+        // Case-insensitive role check
+        const roleCode = userData.role?.toLowerCase().trim();
+        const role = roleMap[Object.keys(roleMap).find(
+          key => key.toLowerCase() === roleCode
+        )];
+  
+        if (role === "manager") {
+          setIsAuthenticated(true);
         } else {
-          const roleRef = userData.roleId;
-          const roleId =
-            roleRef && typeof roleRef === "object" ? roleRef.id : roleRef;
-
-          if (roleId === "manage01") {
-            setIsAuthenticated(true);
-          } else {
-            alert("Only managers can access this page.");
-          }
+          alert("Only managers can access this page.");
         }
       } else {
-        alert("Invalid login code.");
+        alert("No employee found with this ID.");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -319,10 +322,9 @@ const ReportPage = () => {
           </h2>
           <input
             type="text"
-            placeholder="Enter 8-digit code"
+            placeholder="Enter employee ID"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            maxLength={8}
             className="p-2 border border-gray-300 rounded w-full mb-4 text-center"
           />
 
@@ -441,7 +443,7 @@ const ReportPage = () => {
                           item.name
                             .toLowerCase()
                             .includes(itemNameFilter.toLowerCase())
-                        ) // Added missing closing parenthesis here
+                        )
                         .map((item) => ({ kot, item }))
                     )
                     .map(({ kot, item }, index) => (
@@ -544,7 +546,7 @@ const ReportPage = () => {
           <div className="flex justify-between items-center mb-4">
             <h1>KOT Report for {selectedDate}</h1>
           </div>
-         
+
           <div className="filters">
             <label>
               Select Date:
@@ -585,14 +587,14 @@ const ReportPage = () => {
             >
               Download CSV
             </CSVLink>
-          
-          <button onClick={() => fetchKOTHistory()} className="btn">
-                Refresh
-              </button>
-              <button onClick={() => setCurrentView("home")} className="btn">Back</button>
 
+            <button onClick={() => fetchKOTHistory()} className="btn">
+              Refresh
+            </button>
+            <button onClick={() => setCurrentView("home")} className="btn">
+              Back
+            </button>
           </div>
-              
 
           <div ref={reportRef}>
             {loading ? (
@@ -618,8 +620,7 @@ const ReportPage = () => {
                     <tr key={kot.id}>
                       <td>{kot.kot_id}</td>
                       <td>
-                        {kot.date.toLocaleDateString()}{" "}
-                        {kot.date.toLocaleTimeString()}
+                        {kot.date.toLocaleDateString()} {kot.date.toLocaleTimeString()}
                       </td>
                       <td>{formatCustomerId(kot.customerId)}</td>
                       <td>£{Number(kot.amount).toFixed(2)}</td>

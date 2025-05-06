@@ -19,6 +19,10 @@ export default function Footer() {
     navigate("/Help")
   }
 
+  const handleRecallClick = ()=> {
+    navigate("/Recall")
+  }
+
   return (
     <div className="flex flex-wrap justify-start gap-1 sm:gap-4 md:gap-2">
       <button
@@ -28,7 +32,7 @@ export default function Footer() {
         REFRESH<br />SCREEN
       </button>
   
-      <button
+      <button onClick={handleRecallClick}
         className="bg-blue-600 text-white font-bold py-1 px-2 rounded shadow text-xs sm:text-sm w-[80px] sm:w-[100px] md:w-[120px] h-[80px]"
       >
         RECALL<br />ORDER
