@@ -15,6 +15,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   startOfWeek,
   endOfWeek,
@@ -34,7 +35,7 @@ const roleMap = {
   cash01: "cashier",
   manage01: "manager",
   cashier: "cashier",
-  manager: "manager"
+  manager: "manager",
 };
 
 const CURRENCY_SYMBOL = "£";
@@ -408,39 +409,42 @@ const ReportPage = () => {
   // Manager authentication handler
   const handleManagerLogin = async () => {
     const trimmedCode = code.trim();
-  
+
     if (!trimmedCode) {
       alert("Please enter a valid employee ID.");
       return;
     }
-  
+
     setAuthLoading(true);
-  
+
     try {
       const usersRef = collection(db, "users_01");
       const q = query(usersRef, where("employeeID", "==", trimmedCode));
       const querySnapshot = await getDocs(q);
-  
+
       console.log("Searching for employeeID:", trimmedCode);
-  
+
       if (!querySnapshot.empty) {
         const userDoc = querySnapshot.docs[0];
         const userData = userDoc.data();
         console.log("Found user document:", userData);
-  
+
         // Case-insensitive role check
         const roleCode = userData.role?.toLowerCase().trim();
-        const role = roleMap[Object.keys(roleMap).find(
-          key => key.toLowerCase() === roleCode
-        )];
-  
+        const role =
+          roleMap[
+            Object.keys(roleMap).find((key) => key.toLowerCase() === roleCode)
+          ];
+
         if (role === "manager") {
           setIsAuthenticated(true);
         } else {
           alert("Only managers can access this page.");
         }
       } else {
-        alert("No employee found with this ID. Please check the ID and try again.");
+        alert(
+          "No employee found with this ID. Please check the ID and try again."
+        );
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -461,6 +465,87 @@ const ReportPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePrintReport = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Sales Report", 14, 20);
+
+    // Add Date Range
+    doc.setFontSize(12);
+    doc.text(
+      `From: ${format(salesStartDate, "dd-MM-yyyy")} To: ${format(
+        salesEndDate,
+        "dd-MM-yyyy"
+      )}`,
+      14,
+      30
+    );
+
+    // Add Summary Section
+    const summary = [
+      ["Total Sales", `${CURRENCY_SYMBOL}${summaryData.totalSales.toFixed(2)}`],
+      ["Total Orders", summaryData.totalOrders],
+      ["Total Items Sold", summaryData.totalItemsSold],
+      [
+        "Bestseller",
+        `${summaryData.bestseller.name} (${summaryData.bestseller.count})`,
+      ],
+      [
+        "Least Sold",
+        `${summaryData.leastSold.name} (${summaryData.leastSold.count})`,
+      ],
+      [
+        "Average Daily Sales",
+        `${summaryData.averageDailySales}`,
+      ],
+      [
+        "Average Per Order",
+        `${summaryData.averagePerOrder}`,
+      ]
+    ];
+
+    autoTable(doc, {
+      startY: 35,
+      head: [["Metric", "Value"]],
+      body: summary,
+    });
+
+    // Add Table of Items
+    const itemRows = filteredSales.flatMap((kot) =>
+      kot.items.map((item) => [
+        item.name,
+        itemCategoryMap[item.name] || "Uncategorized",
+        item.quantity,
+        item.price.toFixed(2),
+        (item.price * item.quantity).toFixed(2),
+        kot.orderType,
+        kot.methodOfPayment,
+        kot.userId,
+        format(kot.date, "HH:mm:ss"),
+      ])
+    );
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 10,
+      head: [
+        [
+          "Item",
+          "Category",
+          "Qty",
+          "Unit Price",
+          "Total",
+          "Order Type",
+          "Payment",
+          "Cashier",
+          "Time",
+        ],
+      ],
+      body: itemRows,
+    });
+
+    doc.save(`Sales_Report_${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
   const fetchKOTHistory = async (loadMore = false) => {
@@ -911,10 +996,7 @@ const ReportPage = () => {
             >
               <button className="export-btn">Export to CSV</button>
             </CSVLink>
-            <button className="export-btn" onClick={generatePDF}>
-              Export to PDF
-            </button>
-            <button className="export-btn" onClick={handlePrint}>
+            <button className="export-btn" onClick={handlePrintReport}>
               Print Report
             </button>
           </div>
