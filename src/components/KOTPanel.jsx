@@ -192,7 +192,7 @@ useEffect(() => {
     }
   };
 
-  const updateTotals = (items = kotItems,  points = customerPoints) => {
+  const updateTotals = (items = kotItems) => {
     const subtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -212,6 +212,19 @@ useEffect(() => {
     setTotal(subtotal - newDiscount);
   };
 
+  const applyNewCustomerDiscount = () => {
+    const subtotal = kotItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+  
+    // Use 20 or subtotal, whichever is smaller (to avoid negative totals)
+    const discount = Math.min(20, subtotal);
+  
+    setDiscount(discount);
+    setTotal(subtotal - discount);
+  };
+  
   const openNumberPad = (index) => {
     setSelectedItemIndex(index);
     setQuantityInput("");
@@ -399,7 +412,7 @@ useEffect(() => {
     if (!customerSearch) return;
 
     try {
-      const customersRef = collection(db, "Members");
+      const customersRef = collection(db, "customers");
       const empRef = collection(db, "Employees");
 
       // Run all queries in parallel
@@ -540,7 +553,8 @@ useEffect(() => {
       setIsCustomerModalOpen(false);
       setIsPaymentModalOpen(true);
       setIsNewCustomer(false);
-      updateTotals(kotItems, 20);
+      applyNewCustomerDiscount();
+
     } catch (error) {
       console.error("Error creating customer:", error);
       alert("Error creating customer");

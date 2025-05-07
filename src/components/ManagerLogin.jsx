@@ -100,7 +100,7 @@ export default function ManagerLogin() {
         <h2 className="text-2xl font-semibold mb-4 text-center">Manager Login</h2>
         <input
           type="text"
-          placeholder="Enter 8-digit employee ID"
+          placeholder="Enter employee id"
           value={code}
           onChange={(e) => setCode(e.target.value)}
           maxLength={8}
