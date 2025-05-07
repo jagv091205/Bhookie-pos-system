@@ -126,6 +126,13 @@ const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose }) => {
               <span className="mr-1">📁</span>
               Card
             </button>
+            <button
+              onClick={handleCardFile}
+              className="w-full p-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white text-sm font-bold flex items-center justify-center"
+            >
+              <span className="mr-1">📁</span>
+              Split
+            </button>
           </div>
         </div>
 
