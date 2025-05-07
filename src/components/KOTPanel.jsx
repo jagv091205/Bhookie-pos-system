@@ -47,6 +47,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   const [orderId, setOrderId] = useState("");
   const [isOrderStored, setIsOrderStored] = useState(false);
   const location = useLocation();
+  const [isNewCustomerMode, setIsNewCustomerMode] = useState(false);
+
   const userId = "1234"; // Replace with logged-in user ID
   // const [autoProcessEmployee, setAutoProcessEmployee] = useState(null);
 
@@ -170,7 +172,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     }
   };
 
-  const updateTotals = (items = kotItems) => {
+  const updateTotals = (items = kotItems,  points = customerPoints) => {
     const subtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -492,7 +494,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         customerID: newCustomerId,
         name: customerName,
         phone: customerPhone,
-        points: 0,
+        points: 20,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
@@ -502,10 +504,11 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       setCustomerId(newCustomerId);
       setCustomerPhone(customerPhone);
       setCustomerName(customerName);
-      setCustomerPoints(0);
+      setCustomerPoints(20);
       setIsCustomerModalOpen(false);
       setIsPaymentModalOpen(true);
       setIsNewCustomer(false);
+      updateTotals(kotItems, 20);
     } catch (error) {
       console.error("Error creating customer:", error);
       alert("Error creating customer");
@@ -907,92 +910,128 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         </div>
       )}
 
-      {/* Customer Modal */}
-      {isCustomerModalOpen && !isEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
+     {/* Customer Modal */}
+{isCustomerModalOpen && !isEmployee && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
+      <button
+        onClick={() => {
+          setIsCustomerModalOpen(false);
+          setIsNewCustomerMode(false); // Reset when closing modal
+        }}
+        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+      >
+        ✕
+      </button>
+
+      {isNewCustomerMode ? (
+        // New Customer Creation Form
+        <>
+          <h3 className="text-xl font-bold mb-4">Add New Customer</h3>
+          <input
+            className="border p-2 mb-2 w-full"
+            placeholder="Customer Name"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+          />
+          <input
+            className="border p-2 mb-4 w-full"
+            placeholder="Phone Number"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
             <button
-              onClick={() => setIsCustomerModalOpen(false)}
-              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+              onClick={() => setIsNewCustomerMode(false)} // Go back to search mode
+              className="mr-2 px-4 py-2 bg-gray-300 rounded"
             >
-              ✕
+              Back
             </button>
-            <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
+            <button
+              onClick={createNewCustomer}
+              className="px-4 py-2 bg-blue-600 text-white rounded"
+            >
+              Save
+            </button>
+          </div>
+        </>
+      ) : (
+        // Customer Loyalty Program (Search form)
+        <>
+          <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
 
-            <div className="mb-4">
-              <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="Customer ID or Phone"
-                  className="border p-2 flex-1 rounded"
-                />
-                <button
-                  onClick={searchCustomer}
-                  className="bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            {foundCustomers.map((customer) => {
-              const isEmployee = customer.isEmployee;
-              const identifier = isEmployee
-                ? customer.EmployeeID
-                : customer.customerID;
-              const type = isEmployee ? "Employee" : "Customer";
-
-              return (
-                <div
-                  key={identifier}
-                  className="p-2 border-b hover:bg-gray-100 cursor-pointer"
-                  onClick={() => handleSelectCustomer(customer)}
-                >
-                  <div className="font-medium">
-                    {customer.name} ({type})
-                  </div>
-                  {isEmployee && customer.isClockedIn && (
-                    <div className="text-red-600 text-sm">
-                      ⛔ Currently clocked in
-                    </div>
-                  )}
-                  {customer.points >= 2 &&
-                    !(isEmployee && customer.isClockedIn) && (
-                      <div className="text-green-600 text-sm">
-                        ✓ 20 credits applied for members (Points: {customer.points})
-                      </div>
-                    )}
-                </div>
-              );
-            })}
-
-            <div className="flex gap-2 justify-center mt-4">
+          <div className="mb-4">
+            <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Customer ID or Phone"
+                className="border p-2 flex-1 rounded"
+              />
               <button
-                onClick={() => {
-                  setIsCustomerModalOpen(false);
-                  setIsPaymentModalOpen(true);
-                }}
-                className="bg-gray-500 text-white px-4 py-2 rounded"
+                onClick={searchCustomer}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
               >
-                Skip Loyalty
-              </button>
-              <button
-                onClick={() => setIsNewCustomer(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded"
-              >
-                New Customer
+                Search
               </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Payment Modal */}
-{isPaymentModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+          {foundCustomers.map((customer) => {
+            const isEmployee = customer.isEmployee;
+            const identifier = isEmployee ? customer.EmployeeID : customer.customerID;
+            const type = isEmployee ? "Employee" : "Customer";
+
+            return (
+              <div
+                key={identifier}
+                className="p-2 border-b hover:bg-gray-100 cursor-pointer"
+                onClick={() => handleSelectCustomer(customer)}
+              >
+                <div className="font-medium">
+                  {customer.name} ({type})
+                </div>
+                {isEmployee && customer.isClockedIn && (
+                  <div className="text-red-600 text-sm">⛔ Currently clocked in</div>
+                )}
+                {customer.points >= 2 && !(isEmployee && customer.isClockedIn) && (
+                  <div className="text-green-600 text-sm">
+                    ✓ 20 credits applied for members (Points: {customer.points})
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="flex gap-2 justify-center mt-4">
+            <button
+              onClick={() => {
+                setIsCustomerModalOpen(false);
+                setIsPaymentModalOpen(true); // Skip loyalty
+              }}
+              className="bg-gray-500 text-white px-4 py-2 rounded"
+            >
+              Skip Loyalty
+            </button>
+            <button
+              onClick={() => setIsNewCustomerMode(true)} // Switch to new customer form
+              className="bg-green-600 text-white px-4 py-2 rounded"
+            >
+              New Customer
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+
+ {/* Payment Modal */}
+ {isPaymentModalOpen && (
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
     <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
       <button
         onClick={() => setIsPaymentModalOpen(false)}
@@ -1004,18 +1043,6 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       <div className="flex justify-center gap-4 mb-4">
         <button
           className={`px-4 py-2 rounded ${
-            paymentMethod === "cash" ? "bg-green-600 text-white" : "bg-gray-200"
-          }`}
-          onClick={() =>{ 
-            setPaymentMethod("cash");
-            setIsPaymentProcessed(true);
-            setIsPaymentModalOpen(false);
-          } }
-        >
-          Cash
-        </button>
-        <button
-          className={`px-4 py-2 rounded ${
             paymentMethod === "card" ? "bg-green-600 text-white" : "bg-gray-200"
           }`}
           onClick={() =>{ 
@@ -1024,7 +1051,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             setIsPaymentModalOpen(false);
           }}
         >
-          Card
+          Proceed to Pay
         </button>
       </div>
     
@@ -1047,3 +1074,4 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     </div>
   );
 }
+   
