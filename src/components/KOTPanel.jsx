@@ -48,6 +48,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   const [isOrderStored, setIsOrderStored] = useState(false);
   const location = useLocation();
   const [isNewCustomerMode, setIsNewCustomerMode] = useState(false);
+  
 
   const userId = "1234"; // Replace with logged-in user ID
   // const [autoProcessEmployee, setAutoProcessEmployee] = useState(null);
@@ -59,6 +60,17 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       handleGenerateKOT();
     }
   }, [isPaymentProcessed]);
+
+  const allowedItems = [
+    "Chicken bites",
+    "Chicken Drumsticks",
+    "Manchurian bites",
+    "Vadapav",
+    "Bhaji pav",
+    "Veggie Alootikki burger",
+    "Chicken burger",
+    "Chai"
+  ];
 
   // In KOTPanel.jsx - Update the useEffect for recalled orders
 useEffect(() => {

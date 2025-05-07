@@ -1,37 +1,34 @@
 import React, { useState } from 'react';
-import { useNavigate } from "react-router-dom";
 
-const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
-  const [tendered, setTendered] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const exchangeRate = 0.80; 
-  const amountInPounds = amount * exchangeRate;
-  const tenderedInPounds = tendered * exchangeRate;
+const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose }) => {
+  const [tenderedStr, setTenderedStr] = useState('');
+  const tendered = parseFloat(tenderedStr || '0');
+  const amountInPounds = amount; // Already in GBP
+  const tenderedInPounds = tendered; // Directly use as GBP
   const balanceDueInPounds = amountInPounds - tenderedInPounds;
   const changeDueInPounds = Math.max(0, tenderedInPounds - amountInPounds);
 
   const handleNumberInput = (value) => {
     if (value === 'C') {
-      setTendered(0);
+      setTenderedStr('');
     } else if (value === '00') {
-      setTendered((prev) => prev * 100);
+      setTenderedStr((prev) => prev + '00');
     } else {
-      setTendered((prev) => parseFloat(`${prev}${value}`));
+      setTenderedStr((prev) => prev + value);
     }
   };
 
   const handleClear = () => {
-    setTendered(0);
+    setTenderedStr('');
   };
+
 
   const quickCashValuesInPounds = [5, 10, 20, 50];
   const handleQuickCash = (value) => {
-    setTendered((prev) => prev + value);
+    setTenderedStr((prev) => (parseFloat(prev || '0') + value).toString());
   };
 
   const processPayment = (method) => {
-    setPaymentMethod(method);
-
     if (method === 'Cash' && tenderedInPounds < amountInPounds) {
       if (window.confirm(`Amount tendered is less than balance due. Proceed with payment?`)) {
         onComplete({
@@ -50,6 +47,15 @@ const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
         changeDue: method === 'Cash' ? changeDueInPounds : 0,
       });
     }
+  };
+
+  const handleCardFile = () => {
+    alert('✅ Payment successful');
+    onComplete({
+      method: 'Card File',
+      amountTendered: amountInPounds,
+      changeDue: 0,
+    });
   };
 
   return (
@@ -113,56 +119,12 @@ const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
                 £{value}
               </button>
             ))}
-
             <button
-              onClick={() => processPayment('Cash')}
-              className="w-full p-2 bg-green-500 hover:bg-green-600 rounded-md text-white text-sm font-bold"
+              onClick={handleCardFile}
+              className="w-full p-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white text-sm font-bold flex items-center justify-center"
             >
-              <span className="mr-1">£</span> Cash
-            </button>
-            <button
-              onClick={() => processPayment('Credit Card')}
-              className="w-full p-2 bg-red-500 hover:bg-red-600 rounded-md text-white text-sm font-bold flex items-center justify-center"
-            >
-              <span className="mr-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                  />
-                </svg>
-              </span>
-              Credit Card
-            </button>
-            <button
-              onClick={() => processPayment('Invoice')}
-              className="w-full p-2 bg-red-00 hover:bg-red-00 rounded-md text-white text-sm font-bold flex items-center justify-center"
-            >
-              <span className="mr-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-0 w-0"
-                  fill="none"
-                  viewBox="0 0 20 20"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7m14-8v10a3 3 0 01-3 3H6a3 3 0 01-3-3V8m16 0h-2"
-                  />
-                </svg>
-              </span>
-          
+              <span className="mr-1">📁</span>
+              Card
             </button>
           </div>
         </div>
@@ -170,42 +132,15 @@ const PaymentScreen = ({ amount = 115.00, onComplete, onClose }) => {
         {/* Bottom: Manual Card and Card on File */}
         <div className="flex border-t">
           <button className="flex-1 p-2 border-r text-center text-sm font-bold flex items-center justify-center">
-            <span className="mr-1">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                />
-              </svg>
-            </span>
+            <span className="mr-1">📝</span>
             Manual Card
           </button>
-          <button className="flex-1 p-2 text-center text-sm font-bold flex items-center justify-center">
-            <span className="mr-1">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7m-8 14H5a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v1m-8 14l2-2 2-2 2-2"
-                />
-              </svg>
-            </span>
-            Card File
+          <button
+            onClick={handleCardFile}
+            className="flex-1 p-2 text-center text-sm font-bold flex items-center justify-center"
+          >
+            <span className="mr-1">✅</span>
+            Cash
           </button>
         </div>
       </div>

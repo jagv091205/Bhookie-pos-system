@@ -11,6 +11,18 @@ export default function MenuGrid({ onAddItem = () => {} }) {
   const [showSaucePopup, setShowSaucePopup] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
+  // Clickable items - lowercased for comparison
+  const clickableItems = [
+    "chicken bites",
+    "chicken drumsticks",
+    "manchurian bites",
+    "vada pav",
+    "bhaji pav",
+    "veggie aloo tikki burger",
+    "chicken spicy burger",
+    "chai"
+  ];
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -91,7 +103,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
     setShowSaucePopup(false);
     setSelectedItem(null);
   };
- 
+
   return (
     <div className="flex flex-row w-full h-[calc(100vh-140px)] overflow-hidden">
       {/* Categories */}
@@ -110,39 +122,46 @@ export default function MenuGrid({ onAddItem = () => {} }) {
           </button>
         ))}
       </div>
-  
+
       {/* Items */}
       <div className="flex-1 p-4 bg-purple-200 overflow-y-auto">
         {error ? (
           <div className="text-red-500">{error}</div>
         ) : selectedCategoryId ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2">
-            {filteredItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleItemClick(item)}
-                className="rounded p-1 shadow-md text-white text-center flex flex-col justify-center items-center"
-                style={{
-                  backgroundColor:
-                    item.itemName.toLowerCase().includes("chicken")
-                      ? "#e60000"
-                      : item.itemName.toLowerCase().includes("paneer")
-                      ? "#1f3b73"
-                      : "#22594c",
-                }}
-              >
-                <div>{item.itemName.toUpperCase()}</div>
-                <div className="text-xl mt-3">£{item.price}</div>
-              </button>
-            ))}
+            {filteredItems.map((item) => {
+              const isClickable = clickableItems.includes(item.itemName.toLowerCase());
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={isClickable ? () => handleItemClick(item) : undefined}
+                  disabled={!isClickable}
+                  className={`rounded p-1 shadow-md text-white text-center flex flex-col justify-center items-center transition ${
+                    isClickable ? "" : "opacity-50 cursor-not-allowed"
+                  }`}
+                  style={{
+                    backgroundColor:
+                      item.itemName.toLowerCase().includes("chicken")
+                        ? "#e60000"
+                        : item.itemName.toLowerCase().includes("paneer")
+                        ? "#1f3b73"
+                        : "#22594c",
+                  }}
+                >
+                  <div>{item.itemName.toUpperCase()}</div>
+                  <div className="text-xl mt-3">£{item.price}</div>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="text-gray-800 font-medium text-lg">
-             Select a category to view items
+            Select a category to view items
           </div>
         )}
       </div>
-  
+
       {/* Sauce Popup */}
       {showSaucePopup && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-40">
@@ -150,7 +169,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
             <h2 className="text-xl font-bold mb-5 text-purple-900">
               Select Sauce for {selectedItem.itemName}
             </h2>
-  
+
             {sauceOptions.length > 0 ? (
               <div className="flex flex-wrap gap-3">
                 {sauceOptions.map((sauce, index) => (
@@ -166,14 +185,14 @@ export default function MenuGrid({ onAddItem = () => {} }) {
             ) : (
               <div className="text-gray-300 mb-3">No sauces available</div>
             )}
-  
+
             <button
               onClick={() => handleSelectSauce(null)}
               className="mt-4 px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-600"
             >
               No Sauce
             </button>
-  
+
             <button
               onClick={() => {
                 setShowSaucePopup(false);
@@ -188,4 +207,4 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       )}
     </div>
   );
-}  
+}
