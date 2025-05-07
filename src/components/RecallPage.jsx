@@ -28,35 +28,30 @@ export default function RecallPage() {
     loadPendingOrders();
   }, []);
 
-  const handleRecallOrder = async (order) => {
-    try {
-      if (order.isEmployee) {
-        const mealRef = doc(db, "Employees", order.employeeId, "meal", "1");
-        const mealSnap = await getDoc(mealRef);
-        const currentCredits = mealSnap.exists() ? mealSnap.data().mealCredits : 0;
-        // You'll need to pass this to your main component state
-      }
-
-      // Pass the recalled order data back to the main screen
-      navigate("/", { 
-        state: { 
-          recalledOrder: {
-            items: order.items,
-            
-            customerId: order.isEmployee ? order.employeeId : order.customerId,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            isEmployee: order.isEmployee,
-            creditsUsed: order.creditsUsed,
-            cashDue: order.cashDue
-          }
+// In RecallPage.jsx - Update handleRecallOrder
+const handleRecallOrder = async (order) => {
+  try {
+    navigate("/", { 
+      state: { 
+        recalledOrder: {
+          id: order.id, // Add order ID for status update
+          items: order.items,
+          customerId: order.customerId,  // Original stored values
+          employeeId: order.employeeId,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          isEmployee: order.isEmployee,
+          creditsUsed: order.creditsUsed,
+          cashDue: order.cashDue
         }
-      });
-    } catch (error) {
-      console.error("Error recalling order:", error);
-      alert("Failed to recall order");
-    }
-  };
+      }
+    });
+    console.log(order.id);
+  } catch (error) {
+    console.error("Error recalling order:", error);
+    alert("Failed to recall order");
+  }
+};
 
   return (
     <div className="p-4 max-w-4xl mx-auto">

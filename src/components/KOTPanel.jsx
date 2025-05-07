@@ -58,27 +58,35 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     }
   }, [isPaymentProcessed]);
 
-  useEffect(() => {
-    if (location.state?.recalledOrder) {
-      const order = location.state.recalledOrder;
+  // In KOTPanel.jsx - Update the useEffect for recalled orders
+useEffect(() => {
+  if (location.state?.recalledOrder) {
+    const order = location.state.recalledOrder;
 
-      // Set KOT items
-      setKotItems(order.items);
+    // Set KOT items
+    setKotItems(order.items);
 
-      // Set customer/employee information
-      setCustomerId(order.customerId);
-      setCustomerName(order.customerName);
-      setCustomerPhone(order.customerPhone);
-      setIsEmployee(order.isEmployee);
-
-      // Set payment details
-      setCreditsUsed(order.creditsUsed);
-      setCashDue(order.cashDue);
-
-      // Clear navigation state
-      window.history.replaceState({}, document.title);
+    // Set customer/employee information
+    if (order.isEmployee) {
+      setCustomerId(order.employeeId);  // Use employee ID for employees
+    } else {
+      setCustomerId(order.customerId);   // Use customer ID for customers
     }
-  }, [location.state]);
+    setCustomerName(order.customerName);
+    setCustomerPhone(order.customerPhone);
+    setIsEmployee(order.isEmployee);
+
+    // Set payment details
+    setCreditsUsed(order.creditsUsed);
+    setCashDue(order.cashDue);
+
+    // Store pending order ID for status update
+    setOrderId(order.id);
+
+    // Clear navigation state
+    window.history.replaceState({}, document.title);
+  }
+}, [location.state]);
 
   useEffect(() => {
     if (location.state?.selectedEmployee) {
@@ -294,7 +302,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         subTotal,
         discount,
         total,
-        customerId: isEmployee ? customerId : null,
+        customerId: isEmployee ? null : customerId,  
         employeeId: isEmployee ? customerId : null,
         customerName,
         customerPhone,
@@ -566,6 +574,13 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       // ✅ Save KOT to Firestore
       await setDoc(doc(db, "KOT", newKOTId), data);
 
+      if (orderId) {
+        await updateDoc(doc(db, "pendingOrders", orderId), {
+          status: "completed"
+        });
+        console.log("updated pending status");
+      }
+
       // ✅ Update loyalty points if applicable
       if (customerId) {
         try {
@@ -589,6 +604,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             orderID: newKOTId,
             date: kotTimestamp,
           });
+
+         
         } catch (error) {
           console.error("Error updating customer points:", error);
         }
