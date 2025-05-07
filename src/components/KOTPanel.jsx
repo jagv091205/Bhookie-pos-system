@@ -3,7 +3,7 @@ import { db } from "../firebase/config";
 import { where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 import { writeBatch } from "firebase/firestore";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import PaymentScreen from "./PaymentScreen";
 import {
   collection,
@@ -60,27 +60,35 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     }
   }, [isPaymentProcessed]);
 
-  useEffect(() => {
-    if (location.state?.recalledOrder) {
-      const order = location.state.recalledOrder;
-      
-      // Set KOT items
-      setKotItems(order.items);
-      
-      // Set customer/employee information
-      setCustomerId(order.customerId);
-      setCustomerName(order.customerName);
-      setCustomerPhone(order.customerPhone);
-      setIsEmployee(order.isEmployee);
-      
-      // Set payment details
-      setCreditsUsed(order.creditsUsed);
-      setCashDue(order.cashDue);
-      
-      // Clear navigation state
-      window.history.replaceState({}, document.title);
+  // In KOTPanel.jsx - Update the useEffect for recalled orders
+useEffect(() => {
+  if (location.state?.recalledOrder) {
+    const order = location.state.recalledOrder;
+
+    // Set KOT items
+    setKotItems(order.items);
+
+    // Set customer/employee information
+    if (order.isEmployee) {
+      setCustomerId(order.employeeId);  // Use employee ID for employees
+    } else {
+      setCustomerId(order.customerId);   // Use customer ID for customers
     }
-  }, [location.state]);
+    setCustomerName(order.customerName);
+    setCustomerPhone(order.customerPhone);
+    setIsEmployee(order.isEmployee);
+
+    // Set payment details
+    setCreditsUsed(order.creditsUsed);
+    setCashDue(order.cashDue);
+
+    // Store pending order ID for status update
+    setOrderId(order.id);
+
+    // Clear navigation state
+    window.history.replaceState({}, document.title);
+  }
+}, [location.state]);
 
   useEffect(() => {
     if (location.state?.selectedEmployee) {
@@ -122,7 +130,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       console.log("Back to KOT clicked");
       setIsPaymentModalOpen(false); // Or handle KOT screen logic
     };
-    
+
     // Set employee details and skip customer modal
     setCustomerId(employee.EmployeeID);
     setCustomerName(employee.name);
@@ -178,20 +186,19 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       0
     );
     setSubTotal(subtotal);
-  
+
     // Apply credits-based discount logic
     let newDiscount = 0;
-  
+
     if (customerId && !isEmployee) {
       // Max credits that can be used: either customer's points, or the subtotal (no over-discount)
       const maxCreditsUsable = Math.min(customerPoints, subtotal);
       newDiscount = maxCreditsUsable;
     }
-  
+
     setDiscount(newDiscount);
     setTotal(subtotal - newDiscount);
   };
-  
 
   const openNumberPad = (index) => {
     setSelectedItemIndex(index);
@@ -228,7 +235,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setKotId("");
     setIsPaymentProcessed(false);
     setPaymentMethod("");
-    
+
     // Reset all customer-related states
     setCustomerId("");
     setCustomerPhone("");
@@ -236,13 +243,13 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setCustomerPoints(0);
     setCustomerSearch("");
     setFoundCustomers([]);
-    
+
     // Reset employee-specific states
     setEmployeeMealCredits(0);
     setCreditsUsed(0);
     setCashDue(0);
     setIsEmployee(false);
-    
+
     // Reset discount
     setDiscount(0);
   };
@@ -288,31 +295,45 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       alert("Please add items before storing order");
       return;
     }
-  
+
     try {
-      const orderId = uuidv4(); // Generate UUID instead of KOT ID
+      const orderId = uuidv4();
       const orderData = {
         orderId,
         items: kotItems,
         subTotal,
         discount,
         total,
-        customerId: isEmployee ? customerId : null,
-        employeeId: isEmployee ? customerId : null, // Separate employee ID
+        customerId: isEmployee ? null : customerId,  
+        employeeId: isEmployee ? customerId : null,
         customerName,
         customerPhone,
         isEmployee,
-        employeeMealCredits, // Store current meal credits
+        employeeMealCredits,
         creditsUsed,
         cashDue,
         createdAt: Timestamp.now(),
         expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000)),
-        status: "pending"
+        status: "pending",
       };
-  
+
       await setDoc(doc(db, "pendingOrders", orderId), orderData);
       setOrderId(orderId);
       setIsOrderStored(true);
+
+      // ✅ Clear KOT and related states after storing
+      setKotItems([]);
+      setCustomerId("");
+      setCustomerName("");
+      setCustomerPhone("");
+      setIsEmployee(false);
+      setCreditsUsed(0);
+      setCashDue(0);
+      // Optionally reset subTotal, discount, total, etc.
+      setSubTotal(0);
+      setDiscount(0);
+      setTotal(0);
+
       alert(`Order stored successfully! ID: ${orderId}`);
     } catch (error) {
       console.error("Error storing order:", error);
@@ -473,10 +494,9 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       setDiscount(0);
       setTotal(subTotal);
     }
-    
+
     setIsCustomerModalOpen(false);
     setIsPaymentModalOpen(true);
-    
 
     setIsCustomerModalOpen(false);
     setIsPaymentModalOpen(true);
@@ -551,11 +571,18 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           quantity: item.quantity,
           price: item.price,
         })),
-        methodOfPayment:paymentMethod,
+        methodOfPayment: paymentMethod,
       };
 
       // ✅ Save KOT to Firestore
       await setDoc(doc(db, "KOT", newKOTId), data);
+
+      if (orderId) {
+        await updateDoc(doc(db, "pendingOrders", orderId), {
+          status: "completed"
+        });
+        console.log("updated pending status");
+      }
 
       // ✅ Update loyalty points if applicable
       if (customerId) {
@@ -580,6 +607,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             orderID: newKOTId,
             date: kotTimestamp,
           });
+
+         
         } catch (error) {
           console.error("Error updating customer points:", error);
         }
@@ -673,16 +702,16 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   };
 
   const handleProcessPayment = () => {
-    if (!paymentMethod)  {
+    if (!paymentMethod) {
       setIsPaymentProcessed(true);
       setIsPaymentModalOpen(false);
-    }else {
+    } else {
       alert("Please select a payment method.");
     }
   };
-    return (
+  return (
     <div className="p-4 w-full max-w-sm mx-auto">
-    <h2 className="text-2xl font-bold mb-4">ORDER</h2>
+      <h2 className="text-2xl font-bold mb-4">ORDER</h2>
 
       {kotId && (
         <div className="mb-4 text-base font-semibold text-indigo-700 border border-indigo-300 rounded p-2 bg-indigo-50">
@@ -701,16 +730,16 @@ export default function KOTPanel({ kotItems, setKotItems }) {
             </>
           ) : (
             <>
-            Customer: {customerName} ({customerId}) - Credits: {customerPoints}
-            {customerId && !isEmployee && (
-              <p className="text-green-600">
-                {discount > 0
-                  ? `£${discount} discount applied using credits`
-                  : "No credits used"}
-              </p>
-            )}
-          </>
-          
+              Customer: {customerName} ({customerId}) - Credits:{" "}
+              {customerPoints}
+              {customerId && !isEmployee && (
+                <p className="text-green-600">
+                  {discount > 0
+                    ? `£${discount} discount applied using credits`
+                    : "No credits used"}
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -793,25 +822,29 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       </div>
 
       <div className="grid grid-cols-2 gap-1 mb-3">
-        <button
-          onClick={() => setShowCancelConfirm(true)}
-          className="bg-red-600 text-white p-2 rounded"
-        >
-          CANCEL
-        </button>
-
+        {/* PAY Button */}
         <button
           onClick={handlePayClick}
           className="bg-blue-600 text-white p-2 rounded"
         >
           PAY
         </button>
+
+        {/* STORE Button */}
         <button
           className="bg-blue-600 text-white p-2 rounded"
           onClick={handleStoreOrder}
-          disabled={kotItems.length === 0 }
+          disabled={kotItems.length === 0}
         >
           STORE
+        </button>
+
+        {/* CANCEL Button - spans 2 columns */}
+        <button
+          onClick={() => setShowCancelConfirm(true)}
+          className="bg-red-600 text-white p-2 rounded col-span-2"
+        >
+          CANCEL
         </button>
       </div>
 
@@ -960,24 +993,26 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         <>
           <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
 
-          <div className="mb-4">
-            <p className="mb-2">Enter Customer ID or Phone Number (Optional):</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
-                placeholder="Customer ID or Phone"
-                className="border p-2 flex-1 rounded"
-              />
-              <button
-                onClick={searchCustomer}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
-              >
-                Search
-              </button>
+            <div className="mb-4">
+              <p className="mb-2">
+                Enter Customer ID or Phone Number (Optional):
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Customer ID or Phone"
+                  className="border p-2 flex-1 rounded"
+                />
+                <button
+                  onClick={searchCustomer}
+                  className="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                  Search
+                </button>
+              </div>
             </div>
-          </div>
 
           {foundCustomers.map((customer) => {
             const isEmployee = customer.isEmployee;
@@ -1058,19 +1093,19 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     </div>
   </div>
 )}
-
-    {showPaymentScreen && (
-      <PaymentScreen 
-        amount={total}
-        onComplete={(success) => {
-          setShowPaymentScreen(false);
-          if (success) {
-            setIsPaymentProcessed(true);
-          }
-        }}
-        onClose={() => setShowPaymentScreen(false)}
-      />
-    )}
+      
+      {showPaymentScreen && (
+        <PaymentScreen
+          amount={total}
+          onComplete={(success) => {
+            setShowPaymentScreen(false);
+            if (success) {
+              setIsPaymentProcessed(true);
+            }
+          }}
+          onClose={() => setShowPaymentScreen(false)}
+        />
+      )}
     </div>
   );
 }
