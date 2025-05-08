@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, getDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/config";
 
 export default function MenuGrid({ onAddItem = () => {} }) {
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
+  const [inventory, setInventory] = useState({});
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [error, setError] = useState(null);
   const [sauceOptions, setSauces] = useState([]);
@@ -26,46 +27,44 @@ export default function MenuGrid({ onAddItem = () => {} }) {
   ];
 
   // Sample offers data (you can replace this with data from Firebase if needed)
- 
-const offers = [
-  {
-    id: "offer1",
-    title: "COMBO DEAL",
-    description: "Chicken Spicy Burger + Drumstick",
-    price: "£7.99",
-    originalPrice: "£9.50",
-    items: ["chicken spicy burger", "chicken drumstick"],
-    color: "bg-gradient-to-r from-red-600 to-orange-500"
-  },
-  {
-    id: "offer2",
-    title: "VEGGIE SPECIAL",
-    description: "Vada Pav + Bhaji Pav",
-    price: "£6.50",
-    originalPrice: "£8.00",
-    items: ["vada pav", "bhaji pav"],
-    color: "bg-gradient-to-r from-green-600 to-emerald-500"
-  },
-  {
-    id: "offer3",
-    title: "SNACKS COMBO",
-    description: "Chicken Bites + Manchurian Bites",
-    price: "£5.99",
-    originalPrice: "£7.50",
-    items: ["chicken bites", "manchurian bites"],
-    color: "bg-gradient-to-r from-purple-600 to-indigo-500"
-  },
-  {
-    id: "offer4",
-    title: "QUICK MEAL",
-    description: "Vada Pav + Chai", // Updated description
-    price: "£4.99",
-    originalPrice: "£6.50",
-    items: ["vada pav", "chai"], // Updated items
-    color: "bg-gradient-to-r from-blue-600 to-cyan-500"
-  }
-];
-
+  const offers = [
+    {
+      id: "offer1",
+      title: "COMBO DEAL",
+      description: "Chicken Spicy Burger + Drumstick",
+      price: "£7.99",
+      originalPrice: "£9.50",
+      items: ["chicken spicy burger", "chicken drumsticks"],
+      color: "bg-gradient-to-r from-red-600 to-orange-500"
+    },
+    {
+      id: "offer2",
+      title: "VEGGIE SPECIAL",
+      description: "Vada Pav + Bhaji Pav",
+      price: "£6.50",
+      originalPrice: "£8.00",
+      items: ["vada pav", "bhaji pav"],
+      color: "bg-gradient-to-r from-green-600 to-emerald-500"
+    },
+    {
+      id: "offer3",
+      title: "SNACKS COMBO",
+      description: "Chicken Bites + Manchurian Bites",
+      price: "£5.99",
+      originalPrice: "£7.50",
+      items: ["chicken bites", "manchurian bites"],
+      color: "bg-gradient-to-r from-purple-600 to-indigo-500"
+    },
+    {
+      id: "offer4",
+      title: "QUICK MEAL",
+      description: "Veggie Burger + Chai",
+      price: "£4.99",
+      originalPrice: "£6.50",
+      items: ["veggie aloo tikki burger", "chai"],
+      color: "bg-gradient-to-r from-blue-600 to-cyan-500"
+    }
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,6 +89,25 @@ const offers = [
           };
         });
         setItems(itemData);
+
+        // Fetch inventory for all items in parallel for better performance
+        const inventoryData = {};
+        await Promise.all(
+          itemData.map(async (item) => {
+            try {
+              const invDoc = await getDoc(doc(db, "inventory", item.id));
+              if (invDoc.exists()) {
+                inventoryData[item.id] = invDoc.data();
+              } else {
+                inventoryData[item.id] = { totalStockOnHand: 9999 }; // default large stock if missing
+              }
+            } catch (err) {
+              console.error(`Error fetching inventory for item ${item.id}:`, err);
+              inventoryData[item.id] = { totalStockOnHand: 9999 }; // default large stock if error
+            }
+          })
+        );
+        setInventory(inventoryData);
       } catch (err) {
         setError("Error loading menu data");
         console.error("Error loading menu data:", err);
@@ -209,7 +227,8 @@ const offers = [
         ) : selectedCategoryId ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2">
             {filteredItems.map((item) => {
-              const isClickable = clickableItems.includes(item.itemName.toLowerCase());
+              const stock = inventory[item.id]?.totalStockOnHand;
+              const isClickable = clickableItems.includes(item.itemName.toLowerCase()) && (stock === undefined || stock > 0);
 
               return (
                 <button
@@ -230,6 +249,12 @@ const offers = [
                 >
                   <div>{item.itemName.toUpperCase()}</div>
                   <div className="text-xl mt-3">£{item.price}</div>
+                  {stock !== undefined && stock <= 0 && (
+                    <div className="text-xs text-white-500 mt-1">Out of stock</div>
+                  )}
+                  {stock !== undefined && stock > 0 && stock < 10 && (
+                    <div className="text-xs text-white-600 mt-1">Low stock: {stock} left</div>
+                  )}
                 </button>
               );
             })}
