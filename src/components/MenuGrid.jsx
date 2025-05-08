@@ -26,44 +26,46 @@ export default function MenuGrid({ onAddItem = () => {} }) {
   ];
 
   // Sample offers data (you can replace this with data from Firebase if needed)
-  const offers = [
-    {
-      id: "offer1",
-      title: "COMBO DEAL",
-      description: "Chicken Spicy Burger + Drumstick",
-      price: "£7.99",
-      originalPrice: "£9.50",
-      items: ["chicken spicy burger", "chicken drumstick"],
-      color: "bg-gradient-to-r from-red-600 to-orange-500"
-    },
-    {
-      id: "offer2",
-      title: "VEGGIE SPECIAL",
-      description: "Vada Pav + Bhaji Pav",
-      price: "£6.50",
-      originalPrice: "£8.00",
-      items: ["vada pav", "bhaji pav"],
-      color: "bg-gradient-to-r from-green-600 to-emerald-500"
-    },
-    {
-      id: "offer3",
-      title: "SNACKS COMBO",
-      description: "Chicken Bites + Manchurian Bites",
-      price: "£5.99",
-      originalPrice: "£7.50",
-      items: ["chicken bites", "manchurian bites"],
-      color: "bg-gradient-to-r from-purple-600 to-indigo-500"
-    },
-    {
-      id: "offer4",
-      title: "QUICK MEAL",
-      description: "Veggie Burger + Chai",
-      price: "£4.99",
-      originalPrice: "£6.50",
-      items: ["veggie aloo tikki burger", "chai"],
-      color: "bg-gradient-to-r from-blue-600 to-cyan-500"
-    }
-  ];
+ 
+const offers = [
+  {
+    id: "offer1",
+    title: "COMBO DEAL",
+    description: "Chicken Spicy Burger + Drumstick",
+    price: "£7.99",
+    originalPrice: "£9.50",
+    items: ["chicken spicy burger", "chicken drumstick"],
+    color: "bg-gradient-to-r from-red-600 to-orange-500"
+  },
+  {
+    id: "offer2",
+    title: "VEGGIE SPECIAL",
+    description: "Vada Pav + Bhaji Pav",
+    price: "£6.50",
+    originalPrice: "£8.00",
+    items: ["vada pav", "bhaji pav"],
+    color: "bg-gradient-to-r from-green-600 to-emerald-500"
+  },
+  {
+    id: "offer3",
+    title: "SNACKS COMBO",
+    description: "Chicken Bites + Manchurian Bites",
+    price: "£5.99",
+    originalPrice: "£7.50",
+    items: ["chicken bites", "manchurian bites"],
+    color: "bg-gradient-to-r from-purple-600 to-indigo-500"
+  },
+  {
+    id: "offer4",
+    title: "QUICK MEAL",
+    description: "Vada Pav + Chai", // Updated description
+    price: "£4.99",
+    originalPrice: "£6.50",
+    items: ["vada pav", "chai"], // Updated items
+    color: "bg-gradient-to-r from-blue-600 to-cyan-500"
+  }
+];
+
 
   useEffect(() => {
     const fetchData = async () => {
