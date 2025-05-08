@@ -20,7 +20,8 @@ export default function MenuGrid({ onAddItem = () => {} }) {
     "bhaji pav",
     "veggie aloo tikki burger",
     "chicken spicy burger",
-    "chai"
+    "chai",
+    "chicken spicy burger + chicken drumstick"
   ];
 
   useEffect(() => {
