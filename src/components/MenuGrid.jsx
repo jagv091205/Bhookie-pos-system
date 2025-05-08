@@ -1,15 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, getDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/config";
 
 export default function MenuGrid({ onAddItem = () => {} }) {
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
+  const [inventory, setInventory] = useState({});
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [error, setError] = useState(null);
   const [sauceOptions, setSauces] = useState([]);
   const [showSaucePopup, setShowSaucePopup] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [loadingInventory, setLoadingInventory] = useState(true);
 
   // Clickable items - lowercased for comparison
   const clickableItems = [
@@ -20,8 +22,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
     "bhaji pav",
     "veggie aloo tikki burger",
     "chicken spicy burger",
-    "chai",
-    "chicken spicy burger + chicken drumstick"
+    "chai"
   ];
 
   useEffect(() => {
@@ -47,9 +48,29 @@ export default function MenuGrid({ onAddItem = () => {} }) {
           };
         });
         setItems(itemData);
+
+        // Fetch inventory for all items
+        const inventoryData = {};
+        for (const item of itemData) {
+          try {
+            const invDoc = await getDoc(doc(db, "inventory", item.id));
+            if (invDoc.exists()) {
+              inventoryData[item.id] = invDoc.data();
+            } else {
+              inventoryData[item.id] = { totalStockOnHand: 9999 }; // default large stock if missing
+            }
+          } catch (err) {
+            console.error(`Error fetching inventory for item ${item.id}:`, err);
+            inventoryData[item.id] = { totalStockOnHand: 9999 }; // default large stock if error
+          }
+        }
+        console.log("Inventory data loaded:", inventoryData);
+        setInventory(inventoryData);
+        setLoadingInventory(false);
       } catch (err) {
         setError("Error loading menu data");
         console.error("Error loading menu data:", err);
+        setLoadingInventory(false);
       }
     };
 
@@ -128,10 +149,15 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       <div className="flex-1 p-4 bg-purple-200 overflow-y-auto">
         {error ? (
           <div className="text-red-500">{error}</div>
+        ) : loadingInventory ? (
+          <div className="text-gray-800 font-medium text-lg">Loading inventory...</div>
         ) : selectedCategoryId ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2">
             {filteredItems.map((item) => {
-              const isClickable = clickableItems.includes(item.itemName.toLowerCase());
+              const stock = inventory[item.id]?.totalStockOnHand;
+              const isClickable =
+                clickableItems.includes(item.itemName.toLowerCase()) &&
+                (stock === undefined || stock > 0);
 
               return (
                 <button
@@ -152,6 +178,12 @@ export default function MenuGrid({ onAddItem = () => {} }) {
                 >
                   <div>{item.itemName.toUpperCase()}</div>
                   <div className="text-xl mt-3">£{item.price}</div>
+                  {stock !== undefined && stock <= 0 && (
+                    <div className="text-xs text-red-600 mt-1">Out of stock</div>
+                  )}
+                  {stock !== undefined && stock > 0 && stock < 10 && (
+                    <div className="text-xs text-yellow-600 mt-1">Low stock: {stock} left</div>
+                  )}
                 </button>
               );
             })}
