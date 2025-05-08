@@ -753,64 +753,50 @@ export default function ManagerScreen() {
   });
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
+  {/* Fixed Sidebar */}
+  <aside className="w-64 bg-gray-800 text-white p-6 space-y-4 fixed top-0 left-0 bottom-0 z-20">
+    <h2 className="text-2xl font-bold mb-6">Manager Panel</h2>
+    <nav className="space-y-2">
       <button
-  onClick={() => {
-    logout();
-    navigate("/");
-  }}
-  className="absolute bottom-4 left-4 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
->
-   Back
-</button>
-      <aside className="w-64 bg-gray-800 text-white p-6 space-y-4">
-        <h2 className="text-2xl font-bold mb-6">Manager Panel</h2>
-        <nav className="space-y-2">
-          <button
-            className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Orders" ? "bg-gray-700" : "hover:bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("Orders")}
-          >
-            Orders
-          </button>
-          <button
-            className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Staff Meal" ? "bg-gray-700" : "hover:bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("Staff Meal")}
-          >
-            Staff Meal
-          </button>
-          {/* <button
-            className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Cash" ? "bg-gray-700" : "hover:bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("Cash")}
-          >
-            Cash
-          </button> */}
-         {/*} <button
-            className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Attendance" ? "bg-gray-700" : "hover:bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("Attendance")}
-          >
-            Attendance
-          </button> */}
-         <button
-           className={`block w-full text-left px-4 py-2 rounded ${
-            activeTab === "Cash Management" ? "bg-gray-700" : "hover:bg-gray-700"
-          }`} 
-          onClick={() => setActiveTab("Cash Management")}
-          >
-              Cashier Control Panel
-          </button>
+        className={`block w-full text-left px-4 py-2 rounded ${
+          activeTab === "Orders" ? "bg-gray-700" : "hover:bg-gray-700"
+        }`}
+        onClick={() => setActiveTab("Orders")}
+      >
+        Orders
+      </button>
+      <button
+        className={`block w-full text-left px-4 py-2 rounded ${
+          activeTab === "Staff Meal" ? "bg-gray-700" : "hover:bg-gray-700"
+        }`}
+        onClick={() => setActiveTab("Staff Meal")}
+      >
+        Staff Meal
+      </button>
+      <button
+        className={`block w-full text-left px-4 py-2 rounded ${
+          activeTab === "Cash Management" ? "bg-gray-700" : "hover:bg-gray-700"
+        }`}
+        onClick={() => setActiveTab("Cash Management")}
+      >
+        Cashier Control Panel
+      </button>
+    </nav>
 
-        </nav>
-      </aside>
+    {/* Fixed Back Button */}
+    <button
+      onClick={() => {
+        logout();
+        navigate("/");
+      }}
+      className="absolute bottom-4 left-6 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
+    >
+      Back
+    </button>
+  </aside>
 
-      <main className="flex-1 p-6 bg-white overflow-auto">
+      <main className="ml-64 flex-1 overflow-y-auto p-6 h-screen">
         <h1 className="text-3xl font-bold mb-4">Manager Screen</h1>
 
         {activeTab === "Orders" && (
