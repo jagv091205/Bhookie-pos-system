@@ -14,6 +14,7 @@ import {
   runTransaction,
   arrayUnion,
   serverTimestamp,
+  newDoc,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -21,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 
 const roleMap = {
   cash01: "cashier",
+  employee:"employee"
   // Add other role mappings if needed
 };
 
@@ -35,16 +37,19 @@ export default function ManagerScreen() {
   const [todayLogs, setTodayLogs] = useState([]);
   const [logsVisible, setLogsVisible] = useState(false);
   const [cashierLoading, setCashierLoading] = useState(false);
-  const [cashierCode, setCashierCode] = useState('');
+  const [cashierCode, setCashierCode] = useState("");
   const [amounts, setAmounts] = useState({});
-  const [cashierId, setCashierId] = useState('');
-  const [cashierStatus, setCashierStatus] = useState('');
+  const [cashierId, setCashierId] = useState("");
+  const [cashierStatus, setCashierStatus] = useState("");
   const [sessionDocId, setSessionDocId] = useState(null);
   const { setUser, logout } = useAuth();
   const [filterDate, setFilterDate] = useState(() => {
     const today = new Date();
     // Use local date components instead of ISO string
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(today.getDate()).padStart(2, "0")}`;
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,17 +63,17 @@ export default function ManagerScreen() {
       logout();
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [logout]);
 
   const handleSignInCashier = async () => {
     const trimmedCode = cashierCode.trim();
     if (!trimmedCode) {
-      setCashierStatus("Please enter a valid login code.");
+      setCashierStatus("Please enter a valid employee ID.");
       return;
     }
 
@@ -76,32 +81,35 @@ export default function ManagerScreen() {
     setCashierStatus("Authenticating...");
 
     try {
-      const userRef = doc(db, "users", trimmedCode);
-      const userSnap = await getDoc(userRef);
+      // 1. Query users_01 collection by employeeID
+      const usersRef = collection(db, "users_01");
+      const userQuery = query(usersRef, where("employeeID", "==", trimmedCode));
+      const querySnapshot = await getDocs(userQuery);
 
-      if (!userSnap.exists()) {
-        setCashierStatus("Invalid login code.");
+      if (querySnapshot.empty) {
+        setCashierStatus("Invalid employee ID.");
         return;
       }
 
-      const userData = userSnap.data();
-      const isActive = userData["active/inactive"] === true || userData.active === true;
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
 
+      // 2. Check active status
+      const isActive = userData.active === true;
       if (!isActive) {
         setCashierStatus("User is inactive.");
         return;
       }
 
-      const roleRef = userData.roleId;
-      const roleId = typeof roleRef === "object" && roleRef.id ? roleRef.id : roleRef;
-      const role = roleMap[roleId];
-
-      if (!role) {
+      // 3. Validate role
+      const role = userData.role;
+      console.log(role);
+      if (!role || !roleMap[role]) {
         setCashierStatus("User role not recognized.");
         return;
       }
 
-      // 👉 Check if already signed in
+      // 4. Check existing sign-in
       const attendanceRefCheck = query(
         collection(db, "cashierAttendance"),
         where("cashierId", "==", trimmedCode),
@@ -111,35 +119,31 @@ export default function ManagerScreen() {
 
       if (!attendanceSnapCheck.empty) {
         setCashierStatus("Cashier is already signed in.");
-        setCashierCode(""); // Clear input
-        setCashierLoading(false); // stop loading
+        setCashierCode("");
+        setCashierLoading(false);
         return;
       }
 
-      // Log into sessionHistory (auto-generated docId)
+      // 5. Create session history
       const sessionRef = doc(collection(db, "sessionHistory"));
       await setDoc(sessionRef, {
         userId: trimmedCode,
+        cashierName: userData.name,
         loginTime: serverTimestamp(),
-        role,
+        role: role,
         logoutTime: null,
       });
 
-      setUser({ id: trimmedCode, ...userData, role });
-      setCashierId(trimmedCode);
-
-      // Also create/update cashierAttendance
+      // 6. Update cashier attendance
       const attendanceRef = query(
         collection(db, "cashierAttendance"),
         where("cashierId", "==", trimmedCode)
       );
-
       const attendanceSnap = await getDocs(attendanceRef);
 
       if (attendanceSnap.empty) {
-        // New cashierAttendance
-        const newDoc = doc(collection(db, "cashierAttendance"));
-        await setDoc(newDoc, {
+        const newAttendanceRef = doc(collection(db, "cashierAttendance"));
+        await setDoc(newAttendanceRef, {
           cashierId: trimmedCode,
           cashierName: userData.name || "Unnamed Cashier",
           isSignedIn: true,
@@ -149,7 +153,6 @@ export default function ManagerScreen() {
           signInTime: serverTimestamp(),
         });
       } else {
-        // Update existing record
         const existingDoc = attendanceSnap.docs[0];
         await updateDoc(doc(db, "cashierAttendance", existingDoc.id), {
           isSignedIn: true,
@@ -158,8 +161,15 @@ export default function ManagerScreen() {
         });
       }
 
-      setCashierStatus(`Cashier ${trimmedCode} signed in successfully.`);
-      setCashierCode(""); // Clear input
+      // Update UI state
+      setUser({
+        id: trimmedCode,
+        ...userData,
+        role: role,
+      });
+      setCashierId(trimmedCode);
+      setCashierStatus(`Cashier ${userData.name} signed in successfully.`);
+      setCashierCode("");
     } catch (error) {
       console.error("Sign In error:", error);
       setCashierStatus("Something went wrong during sign in.");
@@ -172,11 +182,12 @@ export default function ManagerScreen() {
     const trimmedCode = cashierCode.trim();
 
     if (!trimmedCode) {
-      setCashierStatus("Please enter Cashier ID");
+      setCashierStatus("Please enter Cashier ID.");
       return;
     }
 
-    setCashierStatus('Processing...');
+    setCashierStatus("Processing...");
+    setCashierLoading(true);
 
     try {
       // 1. Find active sessionHistory (logoutTime == null)
@@ -211,6 +222,7 @@ export default function ManagerScreen() {
       const attRef = doc(db, "cashierAttendance", attDoc.id);
       const data = attDoc.data();
 
+      // 3. If till is still open, close it
       if (data.isOpen) {
         await updateDoc(attRef, {
           isOpen: false,
@@ -218,46 +230,50 @@ export default function ManagerScreen() {
         });
       }
 
+      // 4. Mark as signed out
       await updateDoc(attRef, {
         isSignedIn: false,
       });
 
-      // 3. Update sessionHistory
+      // 5. Update sessionHistory with logout time
       await updateDoc(sessionRef, {
         logoutTime: serverTimestamp(),
       });
 
-      // ✅ 4. Close any active cashSession (new part you wanted)
+      // ✅ 6. Close any open cash session for this cashier
       const cashSessionQuery = query(
         collection(db, "cashSessions"),
+        where("cashierId", "==", trimmedCode),
         where("isClosed", "==", false)
       );
-      const cashSessionSnapshot = await getDocs(cashSessionQuery);
+      const cashSessionSnap = await getDocs(cashSessionQuery);
 
-      if (!cashSessionSnapshot.empty) {
-        const cashSessionDoc = cashSessionSnapshot.docs[0];
-        const cashSessionRef = doc(db, "cashSessions", cashSessionDoc.id);
-        await updateDoc(cashSessionRef, {
+      if (!cashSessionSnap.empty) {
+        const sessionDoc = cashSessionSnap.docs[0];
+        const cashRef = doc(db, "cashSessions", sessionDoc.id);
+        await updateDoc(cashRef, {
           isClosed: true,
           closedAt: Timestamp.now(),
-          closedBy: trimmedCode, // using cashierCode here
+          closedBy: trimmedCode,
         });
-        console.log("Cash session closed silently.");
+        console.log("Cash session closed.");
       } else {
-        console.log("No active cash session found to close.");
+        console.log("No active cash session to close.");
       }
 
       setCashierStatus("Cashier signed out successfully.");
       setCashierCode(""); // Clear input
     } catch (error) {
       console.error("Sign Out error:", error);
-      setCashierStatus("An error occurred while signing out.");
+      setCashierStatus("An error occurred during sign out.");
+    } finally {
+      setCashierLoading(false);
     }
   };
 
   const handleOpenCashier = async (cashierId) => {
     try {
-      // 1. Verify signed in
+      // 1. Verify signed-in cashier
       const q = query(
         collection(db, "cashierAttendance"),
         where("cashierId", "==", cashierId),
@@ -279,22 +295,30 @@ export default function ManagerScreen() {
         return;
       }
 
-      // 3. Open cashierAttendance
+      // 3. Update cashierAttendance to open
       await updateDoc(attendanceRef, {
         isOpen: true,
         openTimes: arrayUnion(Timestamp.now()),
       });
 
-      // 4. Un-pause the active cash session
+      // 4. Find the cashier's active (unclosed) cash session
       const csQ = query(
         collection(db, "cashSessions"),
+        where("cashierId", "==", cashierId),
         where("isClosed", "==", false)
       );
       const csSnap = await getDocs(csQ);
+
       if (!csSnap.empty) {
         const csDoc = csSnap.docs[0];
         const csRef = doc(db, "cashSessions", csDoc.id);
+
+        // Resume session by unpausing it
         await updateDoc(csRef, { isPaused: false });
+
+        console.log("Cash session unpaused.");
+      } else {
+        console.log("No open cash session found to resume.");
       }
 
       alert("Cashier opened successfully.");
@@ -334,16 +358,22 @@ export default function ManagerScreen() {
         closeTimes: arrayUnion(Timestamp.now()),
       });
 
-      // 4. Pause the active cash session
+      // 4. Pause the cashier's active cash session
       const csQ = query(
         collection(db, "cashSessions"),
+        where("cashierId", "==", cashierId),
         where("isClosed", "==", false)
       );
       const csSnap = await getDocs(csQ);
+
       if (!csSnap.empty) {
         const csDoc = csSnap.docs[0];
         const csRef = doc(db, "cashSessions", csDoc.id);
+
         await updateDoc(csRef, { isPaused: true });
+        console.log("Cash session paused.");
+      } else {
+        console.log("No open cash session found to pause.");
       }
 
       alert("Cashier closed successfully.");
@@ -468,31 +498,31 @@ export default function ManagerScreen() {
   const fetchOrders = async () => {
     try {
       let q = collection(db, "KOT");
-      
+
       if (filterDate) {
         // Parse filterDate as LOCAL date (not UTC)
-        const [year, month, day] = filterDate.split('-');
+        const [year, month, day] = filterDate.split("-");
         const selectedDate = new Date(year, month - 1, day);
-        
+
         // Start of day (00:00:00 LOCAL time)
         const startOfDay = new Date(selectedDate);
         startOfDay.setHours(0, 0, 0, 0);
-  
+
         // End of day (23:59:59.999 LOCAL time)
         const endOfDay = new Date(selectedDate);
         endOfDay.setHours(23, 59, 59, 999);
-  
+
         // Convert to Firestore Timestamps
         const startTimestamp = Timestamp.fromDate(startOfDay);
         const endTimestamp = Timestamp.fromDate(endOfDay);
-  
+
         q = query(
           q,
           where("date", ">=", startTimestamp),
           where("date", "<=", endTimestamp)
         );
       }
-  
+
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -503,7 +533,8 @@ export default function ManagerScreen() {
       console.error("Error fetching orders:", err);
     }
   };
-{/*
+  {
+    /*
   // Attendance Handlers
   const getTodayDate = () => new Date().toISOString().split("T")[0];
 
@@ -725,7 +756,8 @@ export default function ManagerScreen() {
     }
   };
   
-*/}
+*/
+  }
   useEffect(() => {
     if (activeTab === "Orders") fetchOrders();
     if (activeTab === "Staff Meal") {
@@ -753,17 +785,9 @@ export default function ManagerScreen() {
   });
 
   return (
-    <div className="flex min-h-screen">
-      <button
-  onClick={() => {
-    logout();
-    navigate("/");
-  }}
-  className="absolute bottom-4 left-4 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
->
-   Back
-</button>
-      <aside className="w-64 bg-gray-800 text-white p-6 space-y-4">
+    <div className="flex h-screen overflow-hidden">
+      {/* Fixed Sidebar */}
+      <aside className="w-64 bg-gray-800 text-white p-6 space-y-4 fixed top-0 left-0 bottom-0 z-20">
         <h2 className="text-2xl font-bold mb-6">Manager Panel</h2>
         <nav className="space-y-2">
           <button
@@ -782,35 +806,31 @@ export default function ManagerScreen() {
           >
             Staff Meal
           </button>
-          {/* <button
+          <button
             className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Cash" ? "bg-gray-700" : "hover:bg-gray-700"
+              activeTab === "Cash Management"
+                ? "bg-gray-700"
+                : "hover:bg-gray-700"
             }`}
-            onClick={() => setActiveTab("Cash")}
+            onClick={() => setActiveTab("Cash Management")}
           >
-            Cash
-          </button> */}
-         {/*} <button
-            className={`block w-full text-left px-4 py-2 rounded ${
-              activeTab === "Attendance" ? "bg-gray-700" : "hover:bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("Attendance")}
-          >
-            Attendance
-          </button> */}
-         <button
-           className={`block w-full text-left px-4 py-2 rounded ${
-            activeTab === "Cash Management" ? "bg-gray-700" : "hover:bg-gray-700"
-          }`} 
-          onClick={() => setActiveTab("Cash Management")}
-          >
-              Cashier Control Panel
+            Cashier Control Panel
           </button>
-
         </nav>
+
+        {/* Fixed Back Button */}
+        <button
+          onClick={() => {
+            logout();
+            navigate("/");
+          }}
+          className="absolute bottom-4 left-6 block w-[215px] text-left px-4 py-2 rounded text-white bg-gray-800 hover:bg-gray-700"
+        >
+          Back
+        </button>
       </aside>
 
-      <main className="flex-1 p-6 bg-white overflow-auto">
+      <main className="ml-64 flex-1 overflow-y-auto p-6 h-screen">
         <h1 className="text-3xl font-bold mb-4">Manager Screen</h1>
 
         {activeTab === "Orders" && (
@@ -1025,68 +1045,68 @@ export default function ManagerScreen() {
         )}
 
         {activeTab === "Cash Management" && (
-  <div>
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Cashier Login Code
-      </label>
-      <input
-        type="text"
-        value={cashierCode}
-        onChange={(e) => setCashierCode(e.target.value)}
-        className="w-full px-3 py-2 border rounded-md shadow-sm text-black bg-white"
-        placeholder="Enter Cashier Login Code"
-      />
-    </div>
+          <div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cashier Login Code
+              </label>
+              <input
+                type="text"
+                value={cashierCode}
+                onChange={(e) => setCashierCode(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md shadow-sm text-black bg-white"
+                placeholder="Enter Cashier Login Code"
+              />
+            </div>
 
-    {/* Status Message */}
-    {cashierStatus && (
-      <div className="mb-4 text-sm text-gray-700">
-        <strong>Status:</strong> {cashierStatus}
-      </div>
-    )}
+            {/* Status Message */}
+            {cashierStatus && (
+              <div className="mb-4 text-sm text-gray-700">
+                <strong>Status:</strong> {cashierStatus}
+              </div>
+            )}
 
-    <div className="flex flex-wrap gap-4">
-      {/* Sign In */}
-      <button
-        onClick={handleSignInCashier}
-        disabled={!cashierCode || cashierLoading}
-        className={`bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900 ${
-          cashierLoading ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-      >
-        {cashierLoading ? 'Signing In...' : 'Sign In Cashier'}
-      </button>
+            <div className="flex flex-wrap gap-4">
+              {/* Sign In */}
+              <button
+                onClick={handleSignInCashier}
+                disabled={!cashierCode || cashierLoading}
+                className={`bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900 ${
+                  cashierLoading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                {cashierLoading ? "Signing In..." : "Sign In Cashier"}
+              </button>
 
-      {/* Open Cashier */}
-      <button
-        onClick={() => handleOpenCashier(cashierCode)}
-        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
-        disabled={!cashierCode}
-      >
-        Open Cashier
-      </button>
+              {/* Open Cashier */}
+              <button
+                onClick={() => handleOpenCashier(cashierCode)}
+                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
+                disabled={!cashierCode}
+              >
+                Open Cashier
+              </button>
 
-      {/* Close Cashier */}
-      <button
-        onClick={() => handleCloseCashier(cashierCode)}
-        className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
-        disabled={!cashierCode}
-      >
-        Close Cashier
-      </button>
+              {/* Close Cashier */}
+              <button
+                onClick={() => handleCloseCashier(cashierCode)}
+                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-900"
+                disabled={!cashierCode}
+              >
+                Close Cashier
+              </button>
 
-      {/* Sign Out */}
-      <button
-        onClick={handleSignOutCashier}
-        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-        disabled={!cashierCode}
-      >
-        Sign Out Cashier
-      </button>
-    </div>
-  </div>
-)}
+              {/* Sign Out */}
+              <button
+                onClick={handleSignOutCashier}
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                disabled={!cashierCode}
+              >
+                Sign Out Cashier
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeTab === "Cash" && (
           <div className="p-4 bg-gray-50 rounded-lg">
@@ -1096,7 +1116,7 @@ export default function ManagerScreen() {
             </p>
           </div>
         )}
-{/*
+        {/*
         {activeTab === "Attendance" && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-4">
