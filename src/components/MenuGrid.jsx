@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/config";
 
 export default function MenuGrid({ onAddItem = () => {} }) {
@@ -26,7 +26,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
     "chicken spicy burger + chicken drumstick"
   ];
 
-  // Sample offers data (you can replace this with data from Firebase if needed)
+  // Sample offers data
   const offers = [
     {
       id: "offer1",
@@ -90,24 +90,19 @@ export default function MenuGrid({ onAddItem = () => {} }) {
         });
         setItems(itemData);
 
-        // Fetch inventory for all items in parallel for better performance
-        const inventoryData = {};
-        await Promise.all(
-          itemData.map(async (item) => {
-            try {
-              const invDoc = await getDoc(doc(db, "inventory", item.id));
-              if (invDoc.exists()) {
-                inventoryData[item.id] = invDoc.data();
-              } else {
-                inventoryData[item.id] = { totalStockOnHand: 9999 }; // default large stock if missing
-              }
-            } catch (err) {
-              console.error(`Error fetching inventory for item ${item.id}:`, err);
-              inventoryData[item.id] = { totalStockOnHand: 9999 }; // default large stock if error
-            }
-          })
-        );
-        setInventory(inventoryData);
+        // Set up real-time inventory listeners for each item
+        itemData.forEach((item) => {
+          const inventoryRef = doc(db, "inventory", item.id);
+          const unsubscribe = onSnapshot(inventoryRef, (doc) => {
+            setInventory(prev => ({
+              ...prev,
+              [item.id]: doc.exists() ? doc.data() : { totalStockOnHand: 9999 }
+            }));
+          });
+
+          // Return cleanup function for the effect
+          return () => unsubscribe();
+        });
       } catch (err) {
         setError("Error loading menu data");
         console.error("Error loading menu data:", err);
@@ -130,10 +125,9 @@ export default function MenuGrid({ onAddItem = () => {} }) {
           const sauceList = sauceGroupSnap.data().sauces || [];
           setSauces(sauceList);
           setShowSaucePopup(true);
-          return; // Wait for sauce selection
+          return;
         }
       }
-      // If no sauces or error, add item directly
       onAddItem({
         id: item.id,
         name: item.itemName,
@@ -142,7 +136,6 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       });
     } catch (err) {
       console.error("Error fetching sauces:", err);
-      // On error, add the item without sauces
       onAddItem({
         id: item.id,
         name: item.itemName,

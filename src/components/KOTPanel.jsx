@@ -340,7 +340,7 @@ useEffect(() => {
         creditsUsed,
         cashDue,
         createdAt: Timestamp.now(),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000)),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
         status: "pending",
       };
 
@@ -365,6 +365,49 @@ useEffect(() => {
     } catch (error) {
       console.error("Error storing order:", error);
       alert("Failed to store order");
+    }
+  };
+
+  const performSearch = async (searchTerm) => {
+    if (!searchTerm) return [];
+  
+    try {
+      const customersRef = collection(db, "customers");
+      const empRef = collection(db, "Employees");
+  
+      const [customerPhoneSnap, customerIdSnap, empPhoneSnap, empIdSnap] = await Promise.all([
+        getDocs(query(customersRef, where("phone", "==", searchTerm))),
+        getDocs(query(customersRef, where("customerID", "==", searchTerm))),
+        getDocs(query(empRef, where("phone", "==", searchTerm))),
+        getDocs(query(empRef, where("EmployeeID", "==", searchTerm))),
+      ]);
+  
+      const results = [];
+      
+      // Process results
+      customerPhoneSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: false }));
+      customerIdSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: false }));
+      empPhoneSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id }));
+      empIdSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id }));
+  
+      // Deduplicate and check clock-in status
+      const uniqueResults = Array.from(new Set(results.map(r => r.phone || r.EmployeeID)))
+        .map(id => results.find(r => (r.phone || r.EmployeeID) === id));
+  
+      const finalResults = await Promise.all(
+        uniqueResults.map(async (result) => {
+          if (result.isEmployee) {
+            const isClockedIn = await checkEmployeeClockInStatus(result.EmployeeID);
+            return { ...result, isClockedIn };
+          }
+          return result;
+        })
+      );
+  
+      return finalResults;
+    } catch (error) {
+      console.error("Search error:", error);
+      return [];
     }
   };
 
@@ -411,8 +454,6 @@ useEffect(() => {
   };
 
   const searchCustomer = async () => {
-    if (!customerSearch) return;
-
     try {
       const customersRef = collection(db, "customers");
       const empRef = collection(db, "Employees");
@@ -476,9 +517,9 @@ useEffect(() => {
       );
 
       setFoundCustomers(finalResults);
+      
     } catch (error) {
-      console.error("Error searching customer:", error);
-      alert("Error searching customer");
+      alert("Error searching customers");
     }
   };
 

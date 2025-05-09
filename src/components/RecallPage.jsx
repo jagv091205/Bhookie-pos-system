@@ -34,7 +34,8 @@ const handleRecallOrder = async (order) => {
     navigate("/", { 
       state: { 
         recalledOrder: {
-          id: order.id, // Add order ID for status update
+          ...order, // Spread existing order properties
+          id: order.id,// Add order ID for status update
           items: order.items,
           customerId: order.customerId,  // Original stored values
           employeeId: order.employeeId,
