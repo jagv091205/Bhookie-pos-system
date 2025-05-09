@@ -366,6 +366,49 @@ useEffect(() => {
     }
   };
 
+  const performSearch = async (searchTerm) => {
+    if (!searchTerm) return [];
+  
+    try {
+      const customersRef = collection(db, "customers");
+      const empRef = collection(db, "Employees");
+  
+      const [customerPhoneSnap, customerIdSnap, empPhoneSnap, empIdSnap] = await Promise.all([
+        getDocs(query(customersRef, where("phone", "==", searchTerm))),
+        getDocs(query(customersRef, where("customerID", "==", searchTerm))),
+        getDocs(query(empRef, where("phone", "==", searchTerm))),
+        getDocs(query(empRef, where("EmployeeID", "==", searchTerm))),
+      ]);
+  
+      const results = [];
+      
+      // Process results
+      customerPhoneSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: false }));
+      customerIdSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: false }));
+      empPhoneSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id }));
+      empIdSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id }));
+  
+      // Deduplicate and check clock-in status
+      const uniqueResults = Array.from(new Set(results.map(r => r.phone || r.EmployeeID)))
+        .map(id => results.find(r => (r.phone || r.EmployeeID) === id));
+  
+      const finalResults = await Promise.all(
+        uniqueResults.map(async (result) => {
+          if (result.isEmployee) {
+            const isClockedIn = await checkEmployeeClockInStatus(result.EmployeeID);
+            return { ...result, isClockedIn };
+          }
+          return result;
+        })
+      );
+  
+      return finalResults;
+    } catch (error) {
+      console.error("Search error:", error);
+      return [];
+    }
+  };
+
   const generateCustomerId = async () => {
     const customersQuery = query(
       collection(db, "customers"),
@@ -409,70 +452,11 @@ useEffect(() => {
   };
 
   const searchCustomer = async () => {
-    if (!customerSearch) return;
-
     try {
-      const customersRef = collection(db, "customers");
-      const empRef = collection(db, "Employees");
-
-      // Run all queries in parallel
-      const [customerPhoneSnap, customerIdSnap, empPhoneSnap, empIdSnap] =
-        await Promise.all([
-          getDocs(query(customersRef, where("phone", "==", customerSearch))),
-          getDocs(
-            query(customersRef, where("customerID", "==", customerSearch))
-          ),
-          getDocs(query(empRef, where("phone", "==", customerSearch))),
-          getDocs(query(empRef, where("EmployeeID", "==", customerSearch))),
-        ]);
-
-      const results = [];
-
-      // Process customer results
-      customerPhoneSnap.forEach((doc) =>
-        results.push({ ...doc.data(), isEmployee: false })
-      );
-      customerIdSnap.forEach((doc) =>
-        results.push({ ...doc.data(), isEmployee: false })
-      );
-
-      // Process employee results
-      empPhoneSnap.forEach((doc) =>
-        results.push({
-          ...doc.data(),
-          isEmployee: true,
-          EmployeeID: doc.id, // Assuming EmployeeID is the document ID
-        })
-      );
-      empIdSnap.forEach((doc) =>
-        results.push({
-          ...doc.data(),
-          isEmployee: true,
-          EmployeeID: doc.id,
-        })
-      );
-
-      // Remove duplicates and check clock-in status
-      const uniqueResults = Array.from(
-        new Set(results.map((r) => r.phone || r.EmployeeID))
-      ).map((id) => results.find((r) => (r.phone || r.EmployeeID) === id));
-
-      const finalResults = await Promise.all(
-        uniqueResults.map(async (result) => {
-          if (result.isEmployee) {
-            const isClockedIn = await checkEmployeeClockInStatus(
-              result.EmployeeID
-            );
-            return { ...result, isClockedIn };
-          }
-          return result;
-        })
-      );
-
-      setFoundCustomers(finalResults);
+      const results = await performSearch(customerSearch);
+      setFoundCustomers(results);
     } catch (error) {
-      console.error("Error searching customer:", error);
-      alert("Error searching customer");
+      alert("Error searching customers");
     }
   };
 
