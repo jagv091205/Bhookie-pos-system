@@ -47,9 +47,9 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   const [isEmployee, setIsEmployee] = useState(false);
   const [orderId, setOrderId] = useState("");
   const [isOrderStored, setIsOrderStored] = useState(false);
+  const [orderType, setOrderType] = useState("dine-in"); // Default to 'dine-in'
   const location = useLocation();
   const [isNewCustomerMode, setIsNewCustomerMode] = useState(false);
-  
 
   const userId = "1234"; // Replace with logged-in user ID
   // const [autoProcessEmployee, setAutoProcessEmployee] = useState(null);
@@ -70,38 +70,39 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     "Bhaji pav",
     "Veggie Alootikki burger",
     "Chicken burger",
-    "Chai"
+    "Chai",
   ];
 
   // In KOTPanel.jsx - Update the useEffect for recalled orders
-useEffect(() => {
-  if (location.state?.recalledOrder) {
-    const order = location.state.recalledOrder;
+  useEffect(() => {
+    if (location.state?.recalledOrder) {
+      const order = location.state.recalledOrder;
 
-    // Set KOT items
-    setKotItems(order.items);
+      // Set KOT items
+      setKotItems(order.items);
 
-    // Set customer/employee information
-    if (order.isEmployee) {
-      setCustomerId(order.employeeId);  // Use employee ID for employees
-    } else {
-      setCustomerId(order.customerId);   // Use customer ID for customers
+      // Set customer/employee information
+      if (order.isEmployee) {
+        setCustomerId(order.employeeId); // Use employee ID for employees
+      } else {
+        setCustomerId(order.customerId); // Use customer ID for customers
+      }
+      setOrderType(order.orderType || 'dine-in');
+      setCustomerName(order.customerName);
+      setCustomerPhone(order.customerPhone);
+      setIsEmployee(order.isEmployee);
+
+      // Set payment details
+      setCreditsUsed(order.creditsUsed);
+      setCashDue(order.cashDue);
+
+      // Store pending order ID for status update
+      setOrderId(order.id);
+
+      // Clear navigation state
+      window.history.replaceState({}, document.title);
     }
-    setCustomerName(order.customerName);
-    setCustomerPhone(order.customerPhone);
-    setIsEmployee(order.isEmployee);
-
-    // Set payment details
-    setCreditsUsed(order.creditsUsed);
-    setCashDue(order.cashDue);
-
-    // Store pending order ID for status update
-    setOrderId(order.id);
-
-    // Clear navigation state
-    window.history.replaceState({}, document.title);
-  }
-}, [location.state]);
+  }, [location.state]);
 
   useEffect(() => {
     if (location.state?.selectedEmployee) {
@@ -218,14 +219,14 @@ useEffect(() => {
       (sum, item) => sum + item.price * item.quantity,
       0
     );
-  
+
     // Use 20 or subtotal, whichever is smaller (to avoid negative totals)
     const discount = Math.min(20, subtotal);
-  
+
     setDiscount(discount);
     setTotal(subtotal - discount);
   };
-  
+
   const openNumberPad = (index) => {
     setSelectedItemIndex(index);
     setQuantityInput("");
@@ -275,7 +276,7 @@ useEffect(() => {
     setCreditsUsed(0);
     setCashDue(0);
     setIsEmployee(false);
-
+    setOrderType('dine-in');
     // Reset discount
     setDiscount(0);
   };
@@ -284,6 +285,10 @@ useEffect(() => {
   const handlePayClick = () => {
     if (kotItems.length === 0) {
       alert("Please add items before payment");
+      return;
+    }
+    if (!orderType) {
+      alert("Please select order type (Dine In/Takeaway)");
       return;
     }
     setIsCustomerModalOpen(true);
@@ -327,10 +332,11 @@ useEffect(() => {
       const orderData = {
         orderId,
         items: kotItems,
+        orderType,
         subTotal,
         discount,
         total,
-        customerId: isEmployee ? null : customerId,  
+        customerId: isEmployee ? null : customerId,
         employeeId: isEmployee ? customerId : null,
         customerName,
         customerPhone,
@@ -339,7 +345,9 @@ useEffect(() => {
         creditsUsed,
         cashDue,
         createdAt: Timestamp.now(),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+        expiresAt: Timestamp.fromDate(
+          new Date(Date.now() + 24 * 60 * 60 * 1000)
+        ),
         status: "pending",
       };
 
@@ -369,40 +377,52 @@ useEffect(() => {
 
   const performSearch = async (searchTerm) => {
     if (!searchTerm) return [];
-  
+
     try {
       const customersRef = collection(db, "customers");
       const empRef = collection(db, "Employees");
-  
-      const [customerPhoneSnap, customerIdSnap, empPhoneSnap, empIdSnap] = await Promise.all([
-        getDocs(query(customersRef, where("phone", "==", searchTerm))),
-        getDocs(query(customersRef, where("customerID", "==", searchTerm))),
-        getDocs(query(empRef, where("phone", "==", searchTerm))),
-        getDocs(query(empRef, where("EmployeeID", "==", searchTerm))),
-      ]);
-  
+
+      const [customerPhoneSnap, customerIdSnap, empPhoneSnap, empIdSnap] =
+        await Promise.all([
+          getDocs(query(customersRef, where("phone", "==", searchTerm))),
+          getDocs(query(customersRef, where("customerID", "==", searchTerm))),
+          getDocs(query(empRef, where("phone", "==", searchTerm))),
+          getDocs(query(empRef, where("EmployeeID", "==", searchTerm))),
+        ]);
+
       const results = [];
-      
+
       // Process results
-      customerPhoneSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: false }));
-      customerIdSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: false }));
-      empPhoneSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id }));
-      empIdSnap.forEach(doc => results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id }));
-  
+      customerPhoneSnap.forEach((doc) =>
+        results.push({ ...doc.data(), isEmployee: false })
+      );
+      customerIdSnap.forEach((doc) =>
+        results.push({ ...doc.data(), isEmployee: false })
+      );
+      empPhoneSnap.forEach((doc) =>
+        results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id })
+      );
+      empIdSnap.forEach((doc) =>
+        results.push({ ...doc.data(), isEmployee: true, EmployeeID: doc.id })
+      );
+
       // Deduplicate and check clock-in status
-      const uniqueResults = Array.from(new Set(results.map(r => r.phone || r.EmployeeID)))
-        .map(id => results.find(r => (r.phone || r.EmployeeID) === id));
-  
+      const uniqueResults = Array.from(
+        new Set(results.map((r) => r.phone || r.EmployeeID))
+      ).map((id) => results.find((r) => (r.phone || r.EmployeeID) === id));
+
       const finalResults = await Promise.all(
         uniqueResults.map(async (result) => {
           if (result.isEmployee) {
-            const isClockedIn = await checkEmployeeClockInStatus(result.EmployeeID);
+            const isClockedIn = await checkEmployeeClockInStatus(
+              result.EmployeeID
+            );
             return { ...result, isClockedIn };
           }
           return result;
         })
       );
-  
+
       return finalResults;
     } catch (error) {
       console.error("Search error:", error);
@@ -539,7 +559,6 @@ useEffect(() => {
       setIsPaymentModalOpen(true);
       setIsNewCustomer(false);
       applyNewCustomerDiscount();
-
     } catch (error) {
       console.error("Error creating customer:", error);
       alert("Error creating customer");
@@ -582,6 +601,7 @@ useEffect(() => {
           quantity: item.quantity,
           price: item.price,
         })),
+        orderType: orderType,
         methodOfPayment: paymentMethod,
       };
 
@@ -590,7 +610,7 @@ useEffect(() => {
 
       if (orderId) {
         await updateDoc(doc(db, "pendingOrders", orderId), {
-          status: "completed"
+          status: "completed",
         });
         console.log("updated pending status");
       }
@@ -618,17 +638,18 @@ useEffect(() => {
             orderID: newKOTId,
             date: kotTimestamp,
           });
-
-         
         } catch (error) {
           console.error("Error updating customer points:", error);
         }
       }
 
       const printContent = `
-        <div style="font-family: Arial, sans-serif; border: 1px solid #000; padding: 10px; width: 200px;">
-          <h3 style="text-align: center;">KOT</h3>
+  <div style="...">
+    <h3 style="...">KOT</h3>
           <p><strong>KOT ID:</strong> ${newKOTId}</p>
+          <p><strong>Order Type:</strong> ${
+            orderType === "dine-in" ? "Dine In" : "Takeaway"
+          }</p>
           ${
             customerId
               ? `<p><strong>${
@@ -711,8 +732,6 @@ useEffect(() => {
       alert("Failed to complete order. Please try again.");
     }
   };
-
-  
 
   const handleProcessPayment = () => {
     if (!paymentMethod) {
@@ -861,7 +880,6 @@ useEffect(() => {
         </button>
       </div>
 
-      
       {/* Number Pad Modal */}
       {showNumberPad && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -957,200 +975,209 @@ useEffect(() => {
         </div>
       )}
 
-      
-
-     {/* Customer Modal */}
-{isCustomerModalOpen && !isEmployee && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-    <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
-      <button
-        onClick={() => {
-          setIsCustomerModalOpen(false);
-          setIsNewCustomerMode(false); // Reset when closing modal
-        }}
-        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
-      >
-        ✕
-      </button>
-
-      {isNewCustomerMode ? (
-        // New Customer Creation Form
-        <>
-          <h3 className="text-xl font-bold mb-4">Add New Customer</h3>
-          <input
-            className="border p-2 mb-2 w-full"
-            placeholder="Customer Name"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-          />
-          <input
-            className="border p-2 mb-4 w-full"
-            placeholder="Phone Number"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setIsNewCustomerMode(false)} // Go back to search mode
-              className="mr-2 px-4 py-2 bg-gray-300 rounded"
-            >
-              Back
-            </button>
-            <button
-               onClick={() => {
-                createNewCustomer();
-                setIsOrderTypeModalOpen(true);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded"
-            >
-              Save
-            </button>
-          </div>
-        </>
-      ) : (
-        // Customer Loyalty Program (Search form)
-        <>
-          <h3 className="text-xl font-bold mb-4">Customer Loyalty Program</h3>
-
-            <div className="mb-4">
-              <p className="mb-2">
-                Enter Customer ID or Phone Number (Optional):
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="Customer ID or Phone"
-                  className="border p-2 flex-1 rounded"
-                />
-                <button
-                  onClick={searchCustomer}
-                  className="bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-          {foundCustomers.map((customer) => {
-            const isEmployee = customer.isEmployee;
-            const identifier = isEmployee ? customer.EmployeeID : customer.customerID;
-            const type = isEmployee ? "Employee" : "Customer";
-
-            return (
-              <div
-                key={identifier}
-                className="p-2 border-b hover:bg-gray-100 cursor-pointer"
-                onClick={() => handleSelectCustomer(customer)}
-              >
-                <div className="font-medium">
-                  {customer.name} ({type})
-                </div>
-                {isEmployee && customer.isClockedIn && (
-                  <div className="text-red-600 text-sm">⛔ Currently clocked in</div>
-                )}
-                {customer.points >= 2 && !(isEmployee && customer.isClockedIn) && (
-                  <div className="text-green-600 text-sm">
-                    ✓ 20 credits applied for members (Points: {customer.points})
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          <div className="flex gap-2 justify-center mt-4">
+      {/* Customer Modal */}
+      {isCustomerModalOpen && !isEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
             <button
               onClick={() => {
                 setIsCustomerModalOpen(false);
-                setIsOrderTypeModalOpen(true);
+                setIsNewCustomerMode(false); // Reset when closing modal
               }}
-              className="bg-gray-500 text-white px-4 py-2 rounded"
+              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
             >
-              Skip Loyalty
+              ✕
             </button>
-            <button
-              onClick={() => setIsNewCustomerMode(true)} // Switch to new customer form
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
-              New Customer
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  </div>
-)}
 
-{isOrderTypeModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-    <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
-      {/* Close button (X) in top-right corner */}
-      <button
-        onClick={() => setIsOrderTypeModalOpen(false)}
-        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
-      >
-        ✕
-      </button>
-      
-      <h2 className="text-xl font-bold mb-4">Select Order Type</h2>
-      <div className="flex justify-center gap-4">
-        <button
-          onClick={() => {
-            console.log("User selected: Dine-In");
-            setIsOrderTypeModalOpen(false);
-            setIsCustomerModalOpen(false);
-            setIsPaymentModalOpen(true);
-          }}
-          className="px-4 py-2 bg-green-600 text-white rounded"
-        >
-          Dine-In
-        </button>
-        <button
-          onClick={() => {
-            console.log("User selected: Takeaway");
-            setIsOrderTypeModalOpen(false);
-            setIsCustomerModalOpen(false);
-            setIsPaymentModalOpen(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-        >
-          Takeaway
-        </button>
-      </div>
-    </div>
-  </div>
-)}
- {/* Payment Modal */}
- {isPaymentModalOpen && (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-    <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
-      <button
-        onClick={() => setIsPaymentModalOpen(false)}
-        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
-      >
-        ✕
-      </button>
-      <h3 className="text-xl font-bold mb-4">Select Payment Method</h3>
-      <div className="flex justify-center gap-4 mb-4">
-        <button
-          className={`px-4 py-2 rounded ${
-            paymentMethod === "card" ? "bg-green-600 text-white" : "bg-gray-200"
-          }`}
-          onClick={() =>{ 
-            setPaymentMethod("card");
-            setShowPaymentScreen(true);
-            setIsPaymentModalOpen(false);
-          }}
-        >
-          Proceed to Pay
-        </button>
-      </div>
-    
-    </div>
-  </div>
-)}
-      
+            {isNewCustomerMode ? (
+              // New Customer Creation Form
+              <>
+                <h3 className="text-xl font-bold mb-4">Add New Customer</h3>
+                <input
+                  className="border p-2 mb-2 w-full"
+                  placeholder="Customer Name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                />
+                <input
+                  className="border p-2 mb-4 w-full"
+                  placeholder="Phone Number"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setIsNewCustomerMode(false)} // Go back to search mode
+                    className="mr-2 px-4 py-2 bg-gray-300 rounded"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => {
+                      createNewCustomer();
+                      setIsOrderTypeModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded"
+                  >
+                    Save
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Customer Loyalty Program (Search form)
+              <>
+                <h3 className="text-xl font-bold mb-4">
+                  Customer Loyalty Program
+                </h3>
+
+                <div className="mb-4">
+                  <p className="mb-2">
+                    Enter Customer ID or Phone Number (Optional):
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="Customer ID or Phone"
+                      className="border p-2 flex-1 rounded"
+                    />
+                    <button
+                      onClick={searchCustomer}
+                      className="bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+
+                {foundCustomers.map((customer) => {
+                  const isEmployee = customer.isEmployee;
+                  const identifier = isEmployee
+                    ? customer.EmployeeID
+                    : customer.customerID;
+                  const type = isEmployee ? "Employee" : "Customer";
+
+                  return (
+                    <div
+                      key={identifier}
+                      className="p-2 border-b hover:bg-gray-100 cursor-pointer"
+                      onClick={() => handleSelectCustomer(customer)}
+                    >
+                      <div className="font-medium">
+                        {customer.name} ({type})
+                      </div>
+                      {isEmployee && customer.isClockedIn && (
+                        <div className="text-red-600 text-sm">
+                          ⛔ Currently clocked in
+                        </div>
+                      )}
+                      {customer.points >= 2 &&
+                        !(isEmployee && customer.isClockedIn) && (
+                          <div className="text-green-600 text-sm">
+                            ✓ 20 credits applied for members (Points:{" "}
+                            {customer.points})
+                          </div>
+                        )}
+                    </div>
+                  );
+                })}
+
+                <div className="flex gap-2 justify-center mt-4">
+                  <button
+                    onClick={() => {
+                      setIsCustomerModalOpen(false);
+                      setIsOrderTypeModalOpen(true);
+                    }}
+                    className="bg-gray-500 text-white px-4 py-2 rounded"
+                  >
+                    Skip Loyalty
+                  </button>
+                  <button
+                    onClick={() => setIsNewCustomerMode(true)} // Switch to new customer form
+                    className="bg-green-600 text-white px-4 py-2 rounded"
+                  >
+                    New Customer
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isOrderTypeModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
+            {/* Close button (X) in top-right corner */}
+            <button
+              onClick={() => setIsOrderTypeModalOpen(false)}
+              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-xl font-bold mb-4">Select Order Type</h2>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => {
+                  console.log("User selected: Dine-In");
+                  setIsOrderTypeModalOpen(false);
+                  setIsCustomerModalOpen(false);
+                  setIsPaymentModalOpen(true);
+                  setOrderType("dine-in");
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
+                Dine-In
+              </button>
+              <button
+                onClick={() => {
+                  console.log("User selected: Takeaway");
+                  setIsOrderTypeModalOpen(false);
+                  setIsCustomerModalOpen(false);
+                  setIsPaymentModalOpen(true);
+                  setOrderType("takeaway");
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Takeaway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Payment Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
+            <button
+              onClick={() => setIsPaymentModalOpen(false)}
+              className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+            >
+              ✕
+            </button>
+            <h3 className="text-xl font-bold mb-4">Select Payment Method</h3>
+            <div className="flex justify-center gap-4 mb-4">
+              <button
+                className={`px-4 py-2 rounded ${
+                  paymentMethod === "card"
+                    ? "bg-green-600 text-white"
+                    : "bg-gray-200"
+                }`}
+                onClick={() => {
+                  setPaymentMethod("card");
+                  setShowPaymentScreen(true);
+                  setIsPaymentModalOpen(false);
+                }}
+              >
+                Proceed to Pay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPaymentScreen && (
         <PaymentScreen
           amount={total}
@@ -1166,4 +1193,3 @@ useEffect(() => {
     </div>
   );
 }
-   
