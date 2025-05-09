@@ -15,13 +15,11 @@ export default function MenuGrid({ onAddItem = () => {} }) {
 
   // Clickable items - lowercased for comparison
   const clickableItems = [
-    "chicken bites",
     "chicken drumsticks",
     "manchurian bites",
     "vada pav",
     "bhaji pav",
     "veggie aloo tikki burger",
-    "chicken spicy burger",
     "chai",
     "chicken spicy burger + chicken drumstick"
   ];
