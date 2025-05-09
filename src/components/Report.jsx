@@ -43,12 +43,28 @@ const PAGE_SIZE = 50;
 const DATE_FORMAT = "yyyy-MM-dd";
 
 const itemCategoryMap = {
-  Coke: "Beverage",
-  Pepsi: "Beverage",
-  Burger: "Food",
-  Pizza: "Food",
-  "Ice Cream": "Dessert",
+  "Chicken Fries":"cat02",
   "Chicken fillets": "cat01",
+  "Manchurian Bites":"cat01",
+  "Classic Fries":"cat02",
+  "Signature Fries":"cat02",
+  "Potato Twirl":"cat02",
+  "Vada Pav":"cat03",
+  "Samosa Pav":"cat03",
+  "Bhaji Pav":"cat03",
+  "Chicken Wrap":"cat04",
+  "Paneer Wrap":"cat04",
+  "Manchurian Wrap":"cat04",
+  "Veggie Aloo Tikki Burger":"cat05",
+  "Chicken Classic Burger":"cat05",
+  "Chicken Spicy Burger":"cat05",
+  "Paneer Burger":"cat05",
+  "Noodle Bhel":"cat06",
+  "Kulhad Pizza":"cat06",
+  "Chai":"cat07",
+  "Filter Coffee":"cat07",
+  "Chicken Drumsticks":"cat01",
+  "Chicken Bites":"cat01",
   // Add more item name to category mappings here
 };
 
