@@ -24,6 +24,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   const [discount, setDiscount] = useState(0);
   const [total, setTotal] = useState(0);
   const [showNumberPad, setShowNumberPad] = useState(false);
+  const [isOrderTypeModalOpen, setIsOrderTypeModalOpen] = useState(false);
   const [quantityInput, setQuantityInput] = useState("");
   const [selectedItemIndex, setSelectedItemIndex] = useState(null);
   const [kotId, setKotId] = useState("");
@@ -493,7 +494,7 @@ useEffect(() => {
     setCustomerName(customer.name);
     setCustomerPoints(customer.points || 0);
     setIsCustomerModalOpen(false);
-    setIsPaymentModalOpen(true);
+    setIsOrderTypeModalOpen(true);
 
     if (customer.points > 0) {
       const maxCreditsUsable = Math.min(customer.points, subTotal);
@@ -505,10 +506,10 @@ useEffect(() => {
     }
 
     setIsCustomerModalOpen(false);
-    setIsPaymentModalOpen(true);
+    setIsOrderTypeModalOpen(true);
 
     setIsCustomerModalOpen(false);
-    setIsPaymentModalOpen(true);
+    setIsOrderTypeModalOpen(true);
   };
 
   const createNewCustomer = async () => {
@@ -711,6 +712,8 @@ useEffect(() => {
     }
   };
 
+  
+
   const handleProcessPayment = () => {
     if (!paymentMethod) {
       setIsPaymentProcessed(true);
@@ -858,6 +861,7 @@ useEffect(() => {
         </button>
       </div>
 
+      
       {/* Number Pad Modal */}
       {showNumberPad && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -953,6 +957,8 @@ useEffect(() => {
         </div>
       )}
 
+      
+
      {/* Customer Modal */}
 {isCustomerModalOpen && !isEmployee && (
   <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
@@ -991,7 +997,10 @@ useEffect(() => {
               Back
             </button>
             <button
-              onClick={createNewCustomer}
+               onClick={() => {
+                createNewCustomer();
+                setIsOrderTypeModalOpen(true);
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded"
             >
               Save
@@ -1054,7 +1063,7 @@ useEffect(() => {
             <button
               onClick={() => {
                 setIsCustomerModalOpen(false);
-                setIsPaymentModalOpen(true); // Skip loyalty
+                setIsOrderTypeModalOpen(true);
               }}
               className="bg-gray-500 text-white px-4 py-2 rounded"
             >
@@ -1073,7 +1082,45 @@ useEffect(() => {
   </div>
 )}
 
-
+{isOrderTypeModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-[300px] text-center relative">
+      {/* Close button (X) in top-right corner */}
+      <button
+        onClick={() => setIsOrderTypeModalOpen(false)}
+        className="absolute top-2 right-2 text-red-600 font-bold text-xl"
+      >
+        ✕
+      </button>
+      
+      <h2 className="text-xl font-bold mb-4">Select Order Type</h2>
+      <div className="flex justify-center gap-4">
+        <button
+          onClick={() => {
+            console.log("User selected: Dine-In");
+            setIsOrderTypeModalOpen(false);
+            setIsCustomerModalOpen(false);
+            setIsPaymentModalOpen(true);
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded"
+        >
+          Dine-In
+        </button>
+        <button
+          onClick={() => {
+            console.log("User selected: Takeaway");
+            setIsOrderTypeModalOpen(false);
+            setIsCustomerModalOpen(false);
+            setIsPaymentModalOpen(true);
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Takeaway
+        </button>
+      </div>
+    </div>
+  </div>
+)}
  {/* Payment Modal */}
  {isPaymentModalOpen && (
     <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
