@@ -61,7 +61,7 @@ export default function MenuGrid({ onAddItem = () => {} }) {
       description: "Veggie Burger + Chai",
       price: "£4.99",
       originalPrice: "£6.50",
-      items: ["veggie aloo tikki burger", "chai"],
+      items: ["vada pav", "chai"],
       color: "bg-gradient-to-r from-blue-600 to-cyan-500"
     }
   ];
