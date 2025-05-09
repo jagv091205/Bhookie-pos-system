@@ -30,7 +30,7 @@ import { useNavigate } from "react-router-dom";
 import { CSVLink } from "react-csv";
 import { useReactToPrint } from "react-to-print";
 import { format, parseISO, startOfDay, endOfDay } from "date-fns";
-
+import { useAuth } from "../contexts/AutoContext";
 const roleMap = {
   cash01: "cashier",
   manage01: "manager",
@@ -43,33 +43,34 @@ const PAGE_SIZE = 50;
 const DATE_FORMAT = "yyyy-MM-dd";
 
 const itemCategoryMap = {
-  "Chicken Fries":"cat02",
+  "Chicken Fries": "cat02",
   "Chicken fillets": "cat01",
-  "Manchurian Bites":"cat01",
-  "Classic Fries":"cat02",
-  "Signature Fries":"cat02",
-  "Potato Twirl":"cat02",
-  "Vada Pav":"cat03",
-  "Samosa Pav":"cat03",
-  "Bhaji Pav":"cat03",
-  "Chicken Wrap":"cat04",
-  "Paneer Wrap":"cat04",
-  "Manchurian Wrap":"cat04",
-  "Veggie Aloo Tikki Burger":"cat05",
-  "Chicken Classic Burger":"cat05",
-  "Chicken Spicy Burger":"cat05",
-  "Paneer Burger":"cat05",
-  "Noodle Bhel":"cat06",
-  "Kulhad Pizza":"cat06",
-  "Chai":"cat07",
-  "Filter Coffee":"cat07",
-  "Chicken Drumsticks":"cat01",
-  "Chicken Bites":"cat01",
+  "Manchurian Bites": "cat01",
+  "Classic Fries": "cat02",
+  "Signature Fries": "cat02",
+  "Potato Twirl": "cat02",
+  "Vada Pav": "cat03",
+  "Samosa Pav": "cat03",
+  "Bhaji Pav": "cat03",
+  "Chicken Wrap": "cat04",
+  "Paneer Wrap": "cat04",
+  "Manchurian Wrap": "cat04",
+  "Veggie Aloo Tikki Burger": "cat05",
+  "Chicken Classic Burger": "cat05",
+  "Chicken Spicy Burger": "cat05",
+  "Paneer Burger": "cat05",
+  "Noodle Bhel": "cat06",
+  "Kulhad Pizza": "cat06",
+  Chai: "cat07",
+  "Filter Coffee": "cat07",
+  "Chicken Drumsticks": "cat01",
+  "Chicken Bites": "cat01",
   // Add more item name to category mappings here
 };
 
 const ReportPage = () => {
   // Authentication states
+  const { setUser, logout } = useAuth();
   const [code, setCode] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -512,14 +513,8 @@ const ReportPage = () => {
         "Least Sold",
         `${summaryData.leastSold.name} (${summaryData.leastSold.count})`,
       ],
-      [
-        "Average Daily Sales",
-        `${summaryData.averageDailySales}`,
-      ],
-      [
-        "Average Per Order",
-        `${summaryData.averagePerOrder}`,
-      ]
+      ["Average Daily Sales", `${summaryData.averageDailySales}`],
+      ["Average Per Order", `${summaryData.averagePerOrder}`],
     ];
 
     autoTable(doc, {
@@ -562,6 +557,10 @@ const ReportPage = () => {
     });
 
     doc.save(`Sales_Report_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+  const handleExitClick = () => {
+    logout();
+    navigate("/");
   };
 
   const fetchKOTHistory = async (loadMore = false) => {
@@ -1014,6 +1013,9 @@ const ReportPage = () => {
             </CSVLink>
             <button className="export-btn" onClick={handlePrintReport}>
               Print Report
+            </button>
+            <button className="export-btn" onClick={handleExitClick}>
+              Back to POS
             </button>
           </div>
 
