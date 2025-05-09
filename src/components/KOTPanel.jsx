@@ -470,40 +470,40 @@ useEffect(() => {
           getDocs(query(empRef, where("EmployeeID", "==", customerSearch))),
         ]);
 
-      const results = [];
+      const manualResults = [];
 
       // Process customer results
       customerPhoneSnap.forEach((doc) =>
-        results.push({ ...doc.data(), isEmployee: false })
+        manualResults.push({ ...doc.data(), isEmployee: false })
       );
       customerIdSnap.forEach((doc) =>
-        results.push({ ...doc.data(), isEmployee: false })
+        manualResults.push({ ...doc.data(), isEmployee: false })
       );
 
       // Process employee results
       empPhoneSnap.forEach((doc) =>
-        results.push({
+        manualResults.push({
           ...doc.data(),
           isEmployee: true,
           EmployeeID: doc.id, // Assuming EmployeeID is the document ID
         })
       );
       empIdSnap.forEach((doc) =>
-        results.push({
+        manualResults.push({
           ...doc.data(),
           isEmployee: true,
           EmployeeID: doc.id,
         })
       );
       // Check for no results here
-      if (results.length === 0) {
+      if (manualResults.length === 0) {
        alert("No customer or employee found with this ID/phone number.");
        return;
 }
       // Remove duplicates and check clock-in status
       const uniqueResults = Array.from(
-        new Set(results.map((r) => r.phone || r.EmployeeID))
-      ).map((id) => results.find((r) => (r.phone || r.EmployeeID) === id));
+        new Set(manualResults.map((r) => r.phone || r.EmployeeID))
+      ).map((id) => manualResults.find((r) => (r.phone || r.EmployeeID) === id));
 
       const finalResults = await Promise.all(
         uniqueResults.map(async (result) => {
@@ -518,7 +518,9 @@ useEffect(() => {
       );
 
       setFoundCustomers(finalResults);
-      
+      const results = await performSearch(customerSearch);
+      setFoundCustomers(results);
+
     } catch (error) {
       alert("Error searching customers");
     }
