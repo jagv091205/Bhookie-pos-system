@@ -255,7 +255,7 @@ const ReportPage = () => {
       return (
         isWithinDateRange &&
         matchesPayment &&
-        // matchesOrderType &&
+        matchesOrderType &&
         matchesCustomer &&
         hasMatchingItems
       );
@@ -862,7 +862,7 @@ const ReportPage = () => {
                 <option value="all">All Types</option>
                 <option value="dine-in">Dine-In</option>
                 <option value="takeaway">Takeaway</option>
-                <option value="delivery">Delivery</option>
+                {/* <option value="delivery">Delivery</option> */}
               </select>
             </div>
 
@@ -1004,7 +1004,7 @@ const ReportPage = () => {
             </tbody>
           </table>
 
-          <div className="export-options">
+          <div className="export-options sticky bottom-0 bg-white z-10 p-4 shadow-md flex justify-end gap-2">
             <CSVLink
               data={formatSalesCSVData()}
               filename={`Sales_Report_${format(new Date(), DATE_FORMAT)}.csv`}
