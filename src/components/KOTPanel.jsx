@@ -664,10 +664,10 @@ useEffect(() => {
             ? doc(db, "customers", customerPhone)
             : doc(db, "customers", customerId);
 
-          await setDoc(
+          await updateDoc(
             customerDoc,
             {
-              points:increment (customerPoints + earnedPoints),
+              points:increment(customerPoints + earnedPoints),
               updatedAt: kotTimestamp,
             },
             { merge: true }
