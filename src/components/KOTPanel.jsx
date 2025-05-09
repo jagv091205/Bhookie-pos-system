@@ -17,6 +17,7 @@ import {
   Timestamp,
   addDoc,
   updateDoc,
+  runTransaction
 } from "firebase/firestore";
 
 export default function KOTPanel({ kotItems, setKotItems }) {
@@ -635,29 +636,28 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       alert("Please process payment before saving KOT.");
       return;
     }
-
+  
     try {
       // ✅ Ensure consistent timestamp
       const now = new Date();
       const kotTimestamp = Timestamp.fromDate(now);
-
+  
       // ✅ First update inventory
       await updateInventory(kotItems);
-
+  
       // ✅ Generate KOT ID using same date
       const newKOTId = await generateKOTId(now);
       setKotId(newKOTId);
-
+  
       // ✅ Calculate earned points
       const earnedPoints = Math.floor(total * 0.1);
-
+  
       // ✅ Prepare KOT data
       const data = {
         kot_id: newKOTId,
         date: kotTimestamp,
         amount: total,
         customerID: customerId || null,
-        earnedPoints: isEmployee ? 0 : customerId ? earnedPoints : 0,
         creditsUsed: isEmployee ? creditsUsed : 0,
         cashPaid: isEmployee ? cashDue : total,
         items: kotItems.map((item) => ({
@@ -669,48 +669,54 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         orderType: orderType,
         methodOfPayment: paymentMethod,
       };
-
+  
       // ✅ Save KOT to Firestore
       await setDoc(doc(db, "KOT", newKOTId), data);
-
+  
       if (orderId) {
         await updateDoc(doc(db, "pendingOrders", orderId), {
           status: "completed",
         });
         console.log("updated pending status");
       }
-
-      // ✅ Update loyalty points if applicable
-      if (customerId) {
-        try {
-          const customerDoc = customerPhone
-            ? doc(db, "customers", customerPhone)
-            : doc(db, "customers", customerId);
-
-          await updateDoc(
-            customerDoc,
-            {
-              points:increment(customerPoints + earnedPoints),
-              updatedAt: kotTimestamp,
-            },
-            { merge: true }
-          );
-
-          await addDoc(collection(db, "loyaltyHistory"), {
-            customerID: customerId,
-            type: "earn",
-            points: earnedPoints,
-            orderID: newKOTId,
-            date: kotTimestamp,
+  
+      // ✅ Deduct loyalty points if applicable (Deduct)
+      if (customerId && !isEmployee && discount > 0) {
+        const customerRef = doc(db, "customers", customerPhone);
+  
+        await runTransaction(db, async (transaction) => {
+          const customerDocSnap = await transaction.get(customerRef);
+  
+          if (!customerDocSnap.exists()) {
+            throw new Error("Customer document not found");
+          }
+  
+          const currentPoints = Number(customerDocSnap.data().points) || 0;
+          const newPoints = currentPoints - 20;
+  
+          if (newPoints < 0) {
+            throw new Error("Customer doesn't have enough points");
+          }
+  
+          transaction.update(customerRef, {
+            points: newPoints,
+            updatedAt: kotTimestamp,
           });
-        } catch (error) {
-          console.error("Error updating customer points:", error);
-        }
+        });
+  
+        await addDoc(collection(db, "loyaltyHistory"), {
+          customerID: customerId,
+          type: "redeem",
+          points: 20,
+          orderID: newKOTId,
+          date: kotTimestamp,
+        });
       }
-
+  
+      // ✅ Print KOT
       const printContent = `
-  <div style="...">
-    <h3 style="...">KOT</h3>
+        <div style="...">
+          <h3 style="...">KOT</h3>
           <p><strong>KOT ID:</strong> ${newKOTId}</p>
           <p><strong>Order Type:</strong> ${
             orderType === "dine-in" ? "Dine In" : "Takeaway"
@@ -781,7 +787,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           }
         </div>
       `;
-
+  
       const printWindow = window.open("", "_blank");
       if (printWindow) {
         printWindow.document.open();
@@ -790,14 +796,14 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         printWindow.print();
         printWindow.close();
       }
-
+  
       clearItems();
     } catch (error) {
       console.error("Error in KOT generation:", error);
       alert("Failed to complete order. Please try again.");
     }
   };
-
+  
   const handleProcessPayment = () => {
     if (!paymentMethod) {
       setIsPaymentProcessed(true);

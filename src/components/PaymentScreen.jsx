@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { doc, updateDoc, increment } from "firebase/firestore";
+import { doc, updateDoc, increment,runTransaction} from "firebase/firestore";
 import { db } from "../firebase/config";
 
 
-const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose, customerId,customerPhone,discount,isEmployee }) => {
+const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose, customerID,customerPhone,discount,isEmployee }) => {
   const [tenderedStr, setTenderedStr] = useState('');
   const [showSplit, setShowSplit] = useState(false);
   const [splitCashAmount, setSplitCashAmount] = useState('');
@@ -55,28 +55,15 @@ const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose, custom
     }
   };
 
-  const handleCardFile =async () => {
+  const handleCardFile = async () => {
     alert('✅ Payment successful');
-
-  // Deduct loyalty points if applicable
-  if (customerId && !isEmployee && discount > 0) {
-    try {
-      const customerRef = doc(db, "customers", customerPhone);
-      await updateDoc(customerRef, {
-        points: increment(-discount),
-      });
-      console.log(`Deducted ${discount} points from ${customerPhone}`);
-    } catch (error) {
-      console.error("Failed to deduct points:", error);
-    }
-  }
     onComplete({
       method: 'Card File',
       amountTendered: amountInPounds,
       changeDue: 0,
     });
   };
-
+    
   const handleSplitConfirm = () => {
     const cashAmount = parseFloat(splitCashAmount);
     if (isNaN(cashAmount) || cashAmount <= 0 || cashAmount >= amountInPounds) {
@@ -216,26 +203,30 @@ const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose, custom
                   Card: £{remainingAmount.toFixed(2)}
                 </div>
                 <button
-                  onClick={async() => {
-                    alert('✅ Payment successful');
-                     // Deduct loyalty points if applicable
-                    if (customerId && !isEmployee && discount > 0) {
-                    try {
-                        const customerRef = doc(db, "customers", customerPhone);
-                        await updateDoc(customerRef, {
-                          points: increment(-discount),
-                        });
-                        console.log(`Deducted ${discount} points from ${customerPhone}`);
-                      } catch (error) {
-                        console.error("Failed to deduct points:", error);
-                      }
+                 onClick={async () => {
+                  try {
+                    // Deduct loyalty points first if applicable
+                    if (customerID && !isEmployee && discount > 0) {
+                      const customerRef = doc(db, "customers", customerID); // Use customerId consistently
+                      await updateDoc(customerRef, {
+                        points: increment(-discount),
+                      });
+                      console.log(`Deducted ${discount} points from ${customerID}`);
                     }
+              
+                    // Only show success after all operations complete
+                    alert('✅ Payment successful');
+                    
                     onComplete({
                       method: 'Split Payment',
                       amountTendered: amountInPounds,
                       changeDue: 0,
                     });
-                  }}
+                  } catch (error) {
+                    console.error("Payment processing failed:", error);
+                    alert('⚠️ Payment processed but failed to update loyalty points');
+                  }
+                }}
                   className="w-full p-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white text-sm font-bold"
                 >
                   Pay
