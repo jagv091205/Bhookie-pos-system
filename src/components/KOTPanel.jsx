@@ -196,40 +196,28 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   };
 
 // discount function for existing customers 
-  const updateTotals = (items = kotItems) => {
-    const subtotal = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-    setSubTotal(subtotal);
+const updateTotals = (items = kotItems) => {
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  setSubTotal(parseFloat(subtotal)); // Ensure it's stored as a number
 
-    // Apply credits-based discount logic
-    let newDiscount = 0;
+  let newDiscount = 0;
+  if (customerId && !isEmployee) {
+    const maxCreditsUsable = Math.min(customerPoints, subtotal);
+    newDiscount = maxCreditsUsable;
+  }
 
-    if (customerId && !isEmployee) {
-      // Max credits that can be used: either customer's points, or the subtotal (no over-discount)
-      const maxCreditsUsable = Math.min(customerPoints, subtotal);
-      newDiscount = maxCreditsUsable;
-    }
-
-    setDiscount(newDiscount);
-    setTotal(subtotal - newDiscount);
-  };
+  setDiscount(parseFloat(newDiscount));
+  setTotal(parseFloat(subtotal - newDiscount));
+};
 
   // discount function for new customers
   const applyNewCustomerDiscount = () => {
-    const subtotal = kotItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    // Use 20 or subtotal, whichever is smaller (to avoid negative totals)
+    const subtotal = kotItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discount = Math.min(20, subtotal);
-
-    setDiscount(discount);
-    setTotal(subtotal - discount);
+  
+    setDiscount(parseFloat(discount));
+    setTotal(parseFloat(subtotal - discount));
   };
-
   const openNumberPad = (index) => {
     setSelectedItemIndex(index);
     setQuantityInput("");
@@ -324,6 +312,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     return `${prefix}${String(number).padStart(3, "0")}`; // e.g. 050525001
   };
 
+  
   const handleStoreOrder = async () => {
     if (kotItems.length === 0) {
       alert("Please add items before storing order");
@@ -598,25 +587,42 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setIsOrderTypeModalOpen(true);
   };
 
+  // Utility function to generate a unique 9-digit user ID
+  const generateNineDigitUserId = async () => {
+    const customersRef = collection(db, "customers");
+    let userId;
+    let exists = true;
+
+    while (exists) {
+      userId = Math.floor(100000000 + Math.random() * 900000000).toString();
+      const querySnapshot = await getDocs(query(customersRef, where("userId", "==", userId)));
+      exists = !querySnapshot.empty;
+    }
+    return userId;
+  };
+
   const createNewCustomer = async () => {
     if (!customerPhone || !customerName) {
       alert("Please enter phone number and name");
       return;
     }
-
+  
     try {
       const newCustomerId = await generateCustomerId();
+      const newUserId = String(Math.floor(100000000 + Math.random() * 900000000)); // Generate a 9-digit userId
+  
       const customerData = {
         customerID: newCustomerId,
+        userId: newUserId, // Add the userId
         name: customerName,
         phone: customerPhone,
         points: 20,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
-
+  
       await setDoc(doc(db, "customers", customerPhone), customerData);
-
+  
       setCustomerId(newCustomerId);
       setCustomerPhone(customerPhone);
       setCustomerName(customerName);
@@ -656,7 +662,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       const data = {
         kot_id: newKOTId,
         date: kotTimestamp,
-        amount: total,
+        amount: total.toFixed(3),
         customerID: customerId || null,
         creditsUsed: isEmployee ? creditsUsed : 0,
         cashPaid: isEmployee ? cashDue : total,
@@ -1269,3 +1275,35 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     </div>
   );
 }
+
+// Function to add userId to existing customers
+const addUserIdToExistingCustomers = async () => {
+  try {
+    const customersRef = collection(db, "customers");
+    const snapshot = await getDocs(customersRef);
+
+    snapshot.forEach(async (docSnap) => {
+      const customerData = docSnap.data();
+
+      // Check if the userId field is missing
+      if (!customerData.userId) {
+        const newUserId = String(Math.floor(100000000 + Math.random() * 900000000)); // Generate a 9-digit userId
+
+        // Update the document with the new userId
+        await updateDoc(doc(db, "customers", docSnap.id), {
+          userId: newUserId,
+          updatedAt: new Date(), // Optional: Update the timestamp
+        });
+
+        console.log(`Updated customer ${docSnap.id} with userId: ${newUserId}`);
+      }
+    });
+
+    console.log("All customers updated successfully!");
+  } catch (error) {
+    console.error("Error updating customers:", error);
+  }
+};
+
+// Call the function
+addUserIdToExistingCustomers();
