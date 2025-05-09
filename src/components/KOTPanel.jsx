@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase/config";
-import { where } from "firebase/firestore";
+import { increment, where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 import { writeBatch } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
@@ -192,6 +192,7 @@ useEffect(() => {
     }
   };
 
+// discount function for existing customers 
   const updateTotals = (items = kotItems) => {
     const subtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -212,6 +213,7 @@ useEffect(() => {
     setTotal(subtotal - newDiscount);
   };
 
+  // discount function for new customers
   const applyNewCustomerDiscount = () => {
     const subtotal = kotItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -451,7 +453,11 @@ useEffect(() => {
           EmployeeID: doc.id,
         })
       );
-
+      // Check for no results here
+      if (results.length === 0) {
+       alert("No customer or employee found with this ID/phone number.");
+       return;
+}
       // Remove duplicates and check clock-in status
       const uniqueResults = Array.from(
         new Set(results.map((r) => r.phone || r.EmployeeID))
@@ -620,7 +626,7 @@ useEffect(() => {
           await setDoc(
             customerDoc,
             {
-              points: customerPoints + earnedPoints,
+              points:increment (customerPoints + earnedPoints),
               updatedAt: kotTimestamp,
             },
             { merge: true }
@@ -1123,6 +1129,11 @@ useEffect(() => {
       {showPaymentScreen && (
         <PaymentScreen
           amount={total}
+          customerPhone={customerPhone}
+          discount={discount}
+          customerId={customerId}
+          isEmployee={isEmployee}
+          db={db}
           onComplete={(success) => {
             setShowPaymentScreen(false);
             if (success) {

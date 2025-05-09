@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { doc, updateDoc, increment } from "firebase/firestore";
+import { db } from "../firebase/config";
 
-const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose }) => {
+
+const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose, customerId,customerPhone,discount,isEmployee }) => {
   const [tenderedStr, setTenderedStr] = useState('');
   const [showSplit, setShowSplit] = useState(false);
   const [splitCashAmount, setSplitCashAmount] = useState('');
@@ -52,8 +55,21 @@ const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose }) => {
     }
   };
 
-  const handleCardFile = () => {
+  const handleCardFile =async () => {
     alert('✅ Payment successful');
+
+  // Deduct loyalty points if applicable
+  if (customerId && !isEmployee && discount > 0) {
+    try {
+      const customerRef = doc(db, "customers", customerPhone);
+      await updateDoc(customerRef, {
+        points: increment(-discount),
+      });
+      console.log(`Deducted ${discount} points from ${customerPhone}`);
+    } catch (error) {
+      console.error("Failed to deduct points:", error);
+    }
+  }
     onComplete({
       method: 'Card File',
       amountTendered: amountInPounds,
@@ -200,8 +216,20 @@ const PaymentScreen = ({ amount = 115.00, onComplete = () => {}, onClose }) => {
                   Card: £{remainingAmount.toFixed(2)}
                 </div>
                 <button
-                  onClick={() => {
+                  onClick={async() => {
                     alert('✅ Payment successful');
+                     // Deduct loyalty points if applicable
+                    if (customerId && !isEmployee && discount > 0) {
+                    try {
+                        const customerRef = doc(db, "customers", customerPhone);
+                        await updateDoc(customerRef, {
+                          points: increment(-discount),
+                        });
+                        console.log(`Deducted ${discount} points from ${customerPhone}`);
+                      } catch (error) {
+                        console.error("Failed to deduct points:", error);
+                      }
+                    }
                     onComplete({
                       method: 'Split Payment',
                       amountTendered: amountInPounds,
