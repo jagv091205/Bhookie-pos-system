@@ -1214,8 +1214,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
                       {customer.points >= 2 &&
                         !(isEmployee && customer.isClockedIn) && (
                           <div className="text-green-600 text-sm">
-                            ✓ 20 credits applied for members (Points:{" "}
-                            {customer.points})
+                             Available Points:{" "}
+                            {customer.points}
                           </div>
                         )}
                     </div>
