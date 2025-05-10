@@ -213,7 +213,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
 
     let newDiscount = 0;
     if (customerId && !isEmployee) {
-      const maxCreditsUsable = Math.min(customerPoints, subtotal);
+      const maxCreditsUsable = Math.min(customerPoints,20, subtotal);
       newDiscount = maxCreditsUsable;
     }
 
@@ -759,12 +759,13 @@ export default function KOTPanel({ kotItems, setKotItems }) {
           }
 
           const currentPoints = Number(customerDocSnap.data().points) || 0;
-          const newPoints = currentPoints - 20;
+          const pointsToDeduct = discount;
 
-          if (newPoints < 0) {
+          if (currentPoints < pointsToDeduct) {
             throw new Error("Customer doesn't have enough points");
           }
-
+          const newPoints = currentPoints - pointsToDeduct;
+          
           transaction.update(customerRef, {
             points: newPoints,
             updatedAt: kotTimestamp,
@@ -774,7 +775,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
         await addDoc(collection(db, "loyaltyHistory"), {
           customerID: customerId,
           type: "redeem",
-          points: 20,
+          points: discount,
           orderID: newKOTId,
           date: kotTimestamp,
         });
