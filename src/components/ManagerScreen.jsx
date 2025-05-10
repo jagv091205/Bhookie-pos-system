@@ -925,7 +925,7 @@ export default function ManagerScreen() {
                           </td>
                           <td className="p-2 border">{totalItems || 0}</td>
                           <td className="p-2 border">
-                            £{order.amount ? order.amount.toFixed(2) : "0.00"}
+                            £{order.amount ? Number(order.amount).toFixed(2) : "0.00"}
                           </td>
                           <td className="p-2 border">
                             <button

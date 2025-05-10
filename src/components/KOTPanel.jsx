@@ -17,7 +17,7 @@ import {
   Timestamp,
   addDoc,
   updateDoc,
-  runTransaction
+  runTransaction,
 } from "firebase/firestore";
 
 export default function KOTPanel({ kotItems, setKotItems }) {
@@ -88,7 +88,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       } else {
         setCustomerId(order.customerId); // Use customer ID for customers
       }
-      setOrderType(order.orderType || 'dine-in');
+      setOrderType(order.orderType || "dine-in");
       setCustomerName(order.customerName);
       setCustomerPhone(order.customerPhone);
       setIsEmployee(order.isEmployee);
@@ -106,21 +106,21 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   }, [location.state]);
 
   useEffect(() => {
-  if (location.state?.selectedEmployee) {
-    const employee = location.state.selectedEmployee;
+    if (location.state?.selectedEmployee) {
+      const employee = location.state.selectedEmployee;
 
-    // Pre-fill employee details but don't skip item selection
-    setCustomerId(employee.EmployeeID);
-    setCustomerName(employee.name);
-    setCustomerPhone(employee.phone);
-    setEmployeeMealCredits(employee.mealCredits);
-    setIsEmployee(true);
-    setIsCustomerModalOpen(false); // Close customer modal if open
+      // Pre-fill employee details but don't skip item selection
+      setCustomerId(employee.EmployeeID);
+      setCustomerName(employee.name);
+      setCustomerPhone(employee.phone);
+      setEmployeeMealCredits(employee.mealCredits);
+      setIsEmployee(true);
+      setIsCustomerModalOpen(false); // Close customer modal if open
 
-    // Clear the navigation state after processing
-    window.history.replaceState({}, document.title);
-  }
-}, [location]);
+      // Clear the navigation state after processing
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   useEffect(() => {
     // Only show loyalty modal for non-employee orders
@@ -203,26 +203,32 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     }
   };
 
-// discount function for existing customers 
-const updateTotals = (items = kotItems) => {
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  setSubTotal(parseFloat(subtotal)); // Ensure it's stored as a number
+  // discount function for existing customers
+  const updateTotals = (items = kotItems) => {
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    setSubTotal(parseFloat(subtotal)); // Ensure it's stored as a number
 
-  let newDiscount = 0;
-  if (customerId && !isEmployee) {
-    const maxCreditsUsable = Math.min(customerPoints, subtotal);
-    newDiscount = maxCreditsUsable;
-  }
+    let newDiscount = 0;
+    if (customerId && !isEmployee) {
+      const maxCreditsUsable = Math.min(customerPoints, subtotal);
+      newDiscount = maxCreditsUsable;
+    }
 
-  setDiscount(parseFloat(newDiscount));
-  setTotal(parseFloat(subtotal - newDiscount));
-};
+    setDiscount(parseFloat(newDiscount));
+    setTotal(parseFloat(subtotal - newDiscount));
+  };
 
   // discount function for new customers
   const applyNewCustomerDiscount = () => {
-    const subtotal = kotItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal = kotItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
     const discount = Math.min(20, subtotal);
-  
+
     setDiscount(parseFloat(discount));
     setTotal(parseFloat(subtotal - discount));
   };
@@ -275,32 +281,47 @@ const updateTotals = (items = kotItems) => {
     setCreditsUsed(0);
     setCashDue(0);
     setIsEmployee(false);
-    setOrderType('dine-in');
+    setOrderType("dine-in");
     // Reset discount
     setDiscount(0);
   };
 
   // Modify handlePayClick
   const handlePayClick = () => {
-  if (kotItems.length === 0) {
-    alert("Please add items before payment");
-    return;
-  }
-
-  if (!orderType) {
-    alert("Please select order type (Dine In/Takeaway)");
-    return;
-  }
-
-  if (isEmployee && employeeMealCredits !== undefined) {
-    if (location.state?.selectedEmployee?.isClockedIn) {
-      alert("Employee must not be clocked in to use meal credits!");
+    if (kotItems.length === 0) {
+      alert("Please add items before payment");
       return;
     }
-  }
 
-  setIsCustomerModalOpen(true);
-};
+    if (!orderType) {
+      alert("Please select order type (Dine In/Takeaway)");
+      return;
+    }
+
+    if (isEmployee) {
+      if (location.state?.selectedEmployee?.isClockedIn) {
+        alert("Employee must not be clocked in to use meal credits!");
+        return;
+      }
+
+      // Calculate maximum usable credits
+      const maxCredits = Math.min(employeeMealCredits, total);
+      const remaining = total - maxCredits;
+
+      setCreditsUsed(maxCredits);
+      setCashDue(remaining);
+
+      if (remaining > 0) {
+        setIsPaymentModalOpen(true);
+        setPaymentMethod("Meal Credit + Cash");
+      } else {
+        setPaymentMethod("Meal Credit");
+        setIsPaymentProcessed(true);
+      }
+    } else {
+      setIsCustomerModalOpen(true);
+    }
+  };
 
   const generateKOTId = async (dateObj) => {
     const dbDate = new Date(dateObj);
@@ -329,7 +350,6 @@ const updateTotals = (items = kotItems) => {
     return `${prefix}${String(number).padStart(3, "0")}`; // e.g. 050525001
   };
 
-  
   const handleStoreOrder = async () => {
     if (kotItems.length === 0) {
       alert("Please add items before storing order");
@@ -524,13 +544,15 @@ const updateTotals = (items = kotItems) => {
       );
       // Check for no results here
       if (manualResults.length === 0) {
-       alert("No customer or employee found with this ID/phone number.");
-       return;
-}
+        alert("No customer or employee found with this ID/phone number.");
+        return;
+      }
       // Remove duplicates and check clock-in status
       const uniqueResults = Array.from(
         new Set(manualResults.map((r) => r.phone || r.EmployeeID))
-      ).map((id) => manualResults.find((r) => (r.phone || r.EmployeeID) === id));
+      ).map((id) =>
+        manualResults.find((r) => (r.phone || r.EmployeeID) === id)
+      );
 
       const finalResults = await Promise.all(
         uniqueResults.map(async (result) => {
@@ -547,7 +569,6 @@ const updateTotals = (items = kotItems) => {
       setFoundCustomers(finalResults);
       const results = await performSearch(customerSearch);
       setFoundCustomers(results);
-
     } catch (error) {
       alert("Error searching customers");
     }
@@ -612,7 +633,9 @@ const updateTotals = (items = kotItems) => {
 
     while (exists) {
       userId = Math.floor(100000000 + Math.random() * 900000000).toString();
-      const querySnapshot = await getDocs(query(customersRef, where("userId", "==", userId)));
+      const querySnapshot = await getDocs(
+        query(customersRef, where("userId", "==", userId))
+      );
       exists = !querySnapshot.empty;
     }
     return userId;
@@ -623,11 +646,13 @@ const updateTotals = (items = kotItems) => {
       alert("Please enter phone number and name");
       return;
     }
-  
+
     try {
       const newCustomerId = await generateCustomerId();
-      const newUserId = String(Math.floor(100000000 + Math.random() * 900000000)); // Generate a 9-digit userId
-  
+      const newUserId = String(
+        Math.floor(100000000 + Math.random() * 900000000)
+      ); // Generate a 9-digit userId
+
       const customerData = {
         customerID: newCustomerId,
         userId: newUserId, // Add the userId
@@ -637,9 +662,9 @@ const updateTotals = (items = kotItems) => {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
-  
+
       await setDoc(doc(db, "customers", customerPhone), customerData);
-  
+
       setCustomerId(newCustomerId);
       setCustomerPhone(customerPhone);
       setCustomerName(customerName);
@@ -659,22 +684,22 @@ const updateTotals = (items = kotItems) => {
       alert("Please process payment before saving KOT.");
       return;
     }
-  
+
     try {
       // ✅ Ensure consistent timestamp
       const now = new Date();
       const kotTimestamp = Timestamp.fromDate(now);
-  
+
       // ✅ First update inventory
       await updateInventory(kotItems);
-  
+
       // ✅ Generate KOT ID using same date
       const newKOTId = await generateKOTId(now);
       setKotId(newKOTId);
-  
+
       // ✅ Calculate earned points
       const earnedPoints = Math.floor(total * 0.1);
-  
+
       // ✅ Prepare KOT data
       const data = {
         kot_id: newKOTId,
@@ -692,41 +717,60 @@ const updateTotals = (items = kotItems) => {
         orderType: orderType,
         methodOfPayment: paymentMethod,
       };
-  
+
       // ✅ Save KOT to Firestore
       await setDoc(doc(db, "KOT", newKOTId), data);
-  
+
       if (orderId) {
         await updateDoc(doc(db, "pendingOrders", orderId), {
           status: "completed",
         });
         console.log("updated pending status");
       }
-  
+
+       if (isEmployee && creditsUsed > 0) {
+      const mealRef = doc(db, "Employees", customerId, "meal", "1");
+      
+      await runTransaction(db, async (transaction) => {
+        const mealDoc = await transaction.get(mealRef);
+        if (!mealDoc.exists()) throw new Error("Meal document not found");
+        
+        const currentCredits = mealDoc.data().mealCredits;
+        if (currentCredits < creditsUsed) {
+          throw new Error("Insufficient meal credits");
+        }
+        
+        transaction.update(mealRef, {
+          mealCredits: increment(-creditsUsed),
+          lastUpdated: Timestamp.now()
+        });
+      });
+    }
+
       // ✅ Deduct loyalty points if applicable (Deduct)
       if (customerId && !isEmployee && discount > 0) {
         const customerRef = doc(db, "customers", customerPhone);
-  
+
         await runTransaction(db, async (transaction) => {
           const customerDocSnap = await transaction.get(customerRef);
-  
+
           if (!customerDocSnap.exists()) {
             throw new Error("Customer document not found");
           }
-  
+
           const currentPoints = Number(customerDocSnap.data().points) || 0;
           const newPoints = currentPoints - 20;
-  
+
           if (newPoints < 0) {
             throw new Error("Customer doesn't have enough points");
           }
-  
+
           transaction.update(customerRef, {
             points: newPoints,
             updatedAt: kotTimestamp,
           });
         });
-  
+
         await addDoc(collection(db, "loyaltyHistory"), {
           customerID: customerId,
           type: "redeem",
@@ -735,7 +779,7 @@ const updateTotals = (items = kotItems) => {
           date: kotTimestamp,
         });
       }
-  
+
       // ✅ Print KOT
       const printContent = `
         <div style="...">
@@ -810,7 +854,7 @@ const updateTotals = (items = kotItems) => {
           }
         </div>
       `;
-  
+
       const printWindow = window.open("", "_blank");
       if (printWindow) {
         printWindow.document.open();
@@ -819,14 +863,14 @@ const updateTotals = (items = kotItems) => {
         printWindow.print();
         printWindow.close();
       }
-  
+
       clearItems();
     } catch (error) {
       console.error("Error in KOT generation:", error);
       alert("Failed to complete order. Please try again.");
     }
   };
-  
+
   const handleProcessPayment = () => {
     if (!paymentMethod) {
       setIsPaymentProcessed(true);
@@ -1070,7 +1114,7 @@ const updateTotals = (items = kotItems) => {
       )}
 
       {/* Customer Modal */}
-      {isCustomerModalOpen &&  (
+      {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
             <button
@@ -1274,12 +1318,9 @@ const updateTotals = (items = kotItems) => {
 
       {showPaymentScreen && (
         <PaymentScreen
-          amount={total}
-          customerPhone={customerPhone}
-          discount={discount}
-          customerId={customerId}
+          amount={cashDue}
           isEmployee={isEmployee}
-          db={db}
+          customerPhone={customerPhone}
           onComplete={(success) => {
             setShowPaymentScreen(false);
             if (success) {
@@ -1304,7 +1345,9 @@ const addUserIdToExistingCustomers = async () => {
 
       // Check if the userId field is missing
       if (!customerData.userId) {
-        const newUserId = String(Math.floor(100000000 + Math.random() * 900000000)); // Generate a 9-digit userId
+        const newUserId = String(
+          Math.floor(100000000 + Math.random() * 900000000)
+        ); // Generate a 9-digit userId
 
         // Update the document with the new userId
         await updateDoc(doc(db, "customers", docSnap.id), {
