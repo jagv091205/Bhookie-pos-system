@@ -106,13 +106,21 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   }, [location.state]);
 
   useEffect(() => {
-    if (location.state?.selectedEmployee) {
-      const employee = location.state.selectedEmployee;
-      handleAutoProcessEmployee(employee);
-      // Clear the navigation state after processing
-      window.history.replaceState({}, document.title);
-    }
-  }, [location]);
+  if (location.state?.selectedEmployee) {
+    const employee = location.state.selectedEmployee;
+
+    // Pre-fill employee details but don't skip item selection
+    setCustomerId(employee.EmployeeID);
+    setCustomerName(employee.name);
+    setCustomerPhone(employee.phone);
+    setEmployeeMealCredits(employee.mealCredits);
+    setIsEmployee(true);
+    setIsCustomerModalOpen(false); // Close customer modal if open
+
+    // Clear the navigation state after processing
+    window.history.replaceState({}, document.title);
+  }
+}, [location]);
 
   useEffect(() => {
     // Only show loyalty modal for non-employee orders
@@ -126,8 +134,8 @@ export default function KOTPanel({ kotItems, setKotItems }) {
   }, [kotItems]);
 
   const handleAutoProcessEmployee = async (employee) => {
-    if (!employee.isClockedIn) {
-      alert("Employee must be clocked in to use meal credits!");
+    if (employee.isClockedIn) {
+      alert("Employee must not be clocked in to use meal credits!");
       return;
     }
 
@@ -155,7 +163,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
     setIsCustomerModalOpen(false); // Explicitly close customer modal
 
     // Open payment modal directly
-    // setIsPaymentModalOpen(true);s
+    setIsPaymentModalOpen(true);
   };
 
   const updateInventory = async (kotItems) => {
@@ -286,16 +294,25 @@ export default function KOTPanel({ kotItems, setKotItems }) {
 
   // Modify handlePayClick
   const handlePayClick = () => {
-    if (kotItems.length === 0) {
-      alert("Please add items before payment");
+  if (kotItems.length === 0) {
+    alert("Please add items before payment");
+    return;
+  }
+
+  if (!orderType) {
+    alert("Please select order type (Dine In/Takeaway)");
+    return;
+  }
+
+  if (isEmployee && employeeMealCredits !== undefined) {
+    if (location.state?.selectedEmployee?.isClockedIn) {
+      alert("Employee must not be clocked in to use meal credits!");
       return;
     }
-    if (!orderType) {
-      alert("Please select order type (Dine In/Takeaway)");
-      return;
-    }
-    setIsCustomerModalOpen(true);
-  };
+  }
+
+  setIsCustomerModalOpen(true);
+};
 
   const generateKOTId = async (dateObj) => {
     const dbDate = new Date(dateObj);
@@ -1047,7 +1064,7 @@ export default function KOTPanel({ kotItems, setKotItems }) {
       )}
 
       {/* Customer Modal */}
-      {isCustomerModalOpen && !isEmployee && (
+      {isCustomerModalOpen &&  (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-[400px] text-center relative">
             <button
